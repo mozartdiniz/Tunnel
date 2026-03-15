@@ -44,11 +44,17 @@ impl Config {
 
 impl Default for Config {
     fn default() -> Self {
-        let device_name = std::fs::read_to_string("/etc/hostname")
+        let username = std::env::var("USER")
+            .or_else(|_| std::env::var("USERNAME"))
+            .unwrap_or_else(|_| "user".to_string());
+
+        let hostname = std::fs::read_to_string("/etc/hostname")
             .ok()
             .map(|s| s.trim().to_string())
             .filter(|s| !s.is_empty())
-            .unwrap_or_else(|| "My Computer".to_string());
+            .unwrap_or_else(|| "computer".to_string());
+
+        let device_name = format!("{username} @ {hostname}");
 
         let download_dir = directories::UserDirs::new()
             .and_then(|d| d.download_dir().map(|p| p.to_path_buf()))

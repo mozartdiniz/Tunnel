@@ -1,11 +1,11 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
 
 use anyhow::Result;
 use tokio::net::TcpListener;
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, RwLock};
 
 use crate::config::Config;
 use crate::discovery::Discovery;
@@ -15,33 +15,27 @@ use crate::transfer::{receive_file, send_file};
 /// Events sent from the network layer to the GTK UI.
 #[derive(Debug, Clone)]
 pub enum AppEvent {
-    /// A new peer running Tunnel was found on the LAN.
     PeerFound {
         id: String,
         name: String,
         addr: SocketAddr,
     },
-    /// A peer disappeared from the network.
     PeerLost { id: String },
-    /// A remote peer wants to send us a file.
     IncomingRequest {
         transfer_id: String,
         sender_name: String,
         file_name: String,
         size_bytes: u64,
     },
-    /// Transfer progress update.
     TransferProgress {
         transfer_id: String,
         bytes_done: u64,
         total_bytes: u64,
     },
-    /// Transfer finished successfully.
     TransferComplete {
         transfer_id: String,
         saved_to: PathBuf,
     },
-    /// Something went wrong.
     TransferError {
         transfer_id: String,
         message: String,
@@ -51,66 +45,87 @@ pub enum AppEvent {
 /// Commands sent from the GTK UI to the network layer.
 #[derive(Debug)]
 pub enum AppCommand {
-    /// User dragged a file onto a peer.
     SendFile {
         peer_addr: SocketAddr,
         file_path: PathBuf,
     },
-    /// User clicked "Accept" on an incoming request dialog.
     AcceptTransfer { transfer_id: String },
-    /// User clicked "Deny".
     DenyTransfer { transfer_id: String },
+    /// User changed device name in settings.
+    SetDeviceName(String),
+    /// User changed download folder in settings.
+    SetDownloadDir(PathBuf),
 }
 
 /// Pending incoming transfers waiting for user confirmation.
 pub type PendingMap = Arc<Mutex<HashMap<String, tokio::sync::oneshot::Sender<bool>>>>;
 
-/// Entry point for the entire network stack.
-/// Runs inside a dedicated tokio runtime on a background OS thread.
 pub async fn run_network(
-    config: Config,
+    mut config: Config,
     event_tx: async_channel::Sender<AppEvent>,
     cmd_rx: async_channel::Receiver<AppCommand>,
 ) -> Result<()> {
-    // 1. Load or generate our TLS identity
     let tls = Arc::new(TlsStack::load_or_create(&config).await?);
     tracing::info!("TLS identity ready (device: {})", config.device_name);
 
-    // 2. Bind TCP listener on a dynamic OS-assigned port
     let listener = TcpListener::bind("0.0.0.0:0").await?;
     let local_port = listener.local_addr()?.port();
-    tracing::info!("Listening for incoming transfers on port {local_port}");
+    tracing::info!("Listening on port {local_port}");
 
-    // 3. Start mDNS: advertise ourselves and browse for peers
     let discovery = Discovery::new()?;
-    discovery.advertise(&config.device_name, local_port)?;
 
-    let event_tx_discovery = event_tx.clone();
+    // own_fullname is shared so the mDNS task can always filter the latest name
+    let own_fullname = Arc::new(RwLock::new(
+        discovery.advertise(&config.device_name, local_port)?,
+    ));
+
+    // seen_peers deduplicates repeated ServiceResolved announcements
+    let seen_peers: Arc<Mutex<HashSet<String>>> = Arc::new(Mutex::new(HashSet::new()));
+
+    // Spawn mDNS browsing task
     let browse_rx = discovery.browse()?;
+    let event_tx_mdns = event_tx.clone();
+    let own_fn = own_fullname.clone();
+    let seen = seen_peers.clone();
     tokio::spawn(async move {
         loop {
             match browse_rx.recv_async().await {
-                Ok(event) => handle_mdns_event(event, &event_tx_discovery).await,
+                Ok(event) => {
+                    let current_own = own_fn.read().await.clone();
+                    handle_mdns_event(event, &current_own, &seen, &event_tx_mdns).await;
+                }
                 Err(_) => break,
             }
         }
     });
 
-    // 4. Accept incoming TLS connections
+    // Spawn incoming connection acceptor
     let pending: PendingMap = Arc::new(Mutex::new(HashMap::new()));
     let tls_server = tls.clone();
-    let config_clone = config.clone();
     let event_tx_accept = event_tx.clone();
     let pending_accept = pending.clone();
+
+    // config.download_dir needs to be updated when user changes it.
+    // We share it via Arc<RwLock<PathBuf>>.
+    let download_dir = Arc::new(RwLock::new(config.download_dir.clone()));
+
+    let download_dir_accept = download_dir.clone();
+    let device_name_accept = Arc::new(RwLock::new(config.device_name.clone()));
+    let device_name_server = device_name_accept.clone();
+
+    let config_base = config.clone();
     tokio::spawn(async move {
         loop {
             match listener.accept().await {
                 Ok((stream, peer_addr)) => {
-                    tracing::debug!("Incoming connection from {peer_addr}");
                     let tls = tls_server.clone();
-                    let cfg = config_clone.clone();
                     let etx = event_tx_accept.clone();
                     let pend = pending_accept.clone();
+                    let dir = download_dir_accept.read().await.clone();
+                    let name = device_name_server.read().await.clone();
+                    let mut cfg = config_base.clone();
+                    cfg.download_dir = dir;
+                    cfg.device_name = name;
                     tokio::spawn(async move {
                         if let Err(e) =
                             receive_file(stream, peer_addr, tls, cfg, etx, pend).await
@@ -124,7 +139,7 @@ pub async fn run_network(
         }
     });
 
-    // 5. Process commands from the UI
+    // Process commands from the UI
     while let Ok(cmd) = cmd_rx.recv().await {
         match cmd {
             AppCommand::SendFile {
@@ -139,17 +154,40 @@ pub async fn run_network(
                     }
                 });
             }
+
             AppCommand::AcceptTransfer { transfer_id } => {
-                let mut map = pending.lock().await;
-                if let Some(tx) = map.remove(&transfer_id) {
+                if let Some(tx) = pending.lock().await.remove(&transfer_id) {
                     let _ = tx.send(true);
                 }
             }
+
             AppCommand::DenyTransfer { transfer_id } => {
-                let mut map = pending.lock().await;
-                if let Some(tx) = map.remove(&transfer_id) {
+                if let Some(tx) = pending.lock().await.remove(&transfer_id) {
                     let _ = tx.send(false);
                 }
+            }
+
+            AppCommand::SetDeviceName(new_name) => {
+                let old = own_fullname.read().await.clone();
+                if let Err(e) = discovery.unregister(&old) {
+                    tracing::warn!("Failed to unregister old mDNS service: {e}");
+                }
+                match discovery.advertise(&new_name, local_port) {
+                    Ok(new_fullname) => {
+                        *own_fullname.write().await = new_fullname;
+                        *device_name_accept.write().await = new_name.clone();
+                        config.device_name = new_name;
+                        seen_peers.lock().await.clear();
+                        tracing::info!("Device name updated, mDNS re-announced");
+                    }
+                    Err(e) => tracing::error!("Failed to re-advertise: {e}"),
+                }
+            }
+
+            AppCommand::SetDownloadDir(dir) => {
+                *download_dir.write().await = dir.clone();
+                config.download_dir = dir;
+                tracing::info!("Download dir updated");
             }
         }
     }
@@ -159,11 +197,29 @@ pub async fn run_network(
 
 async fn handle_mdns_event(
     event: mdns_sd::ServiceEvent,
+    own_fullname: &str,
+    seen_peers: &Arc<Mutex<HashSet<String>>>,
     event_tx: &async_channel::Sender<AppEvent>,
 ) {
     use mdns_sd::ServiceEvent;
     match event {
         ServiceEvent::ServiceResolved(info) => {
+            let fullname = info.get_fullname().to_string();
+
+            // Filter self
+            if fullname == own_fullname {
+                return;
+            }
+
+            // Deduplicate: skip if we already sent a PeerFound for this fullname
+            {
+                let mut seen = seen_peers.lock().await;
+                if seen.contains(&fullname) {
+                    return;
+                }
+                seen.insert(fullname.clone());
+            }
+
             let addr = match info.get_addresses().iter().next() {
                 Some(ip) => SocketAddr::new(*ip, info.get_port()),
                 None => return,
@@ -177,18 +233,21 @@ async fn handle_mdns_event(
             tracing::info!("Peer found: {name} @ {addr}");
             let _ = event_tx
                 .send(AppEvent::PeerFound {
-                    id: info.get_fullname().to_string(),
+                    id: fullname,
                     name,
                     addr,
                 })
                 .await;
         }
+
         ServiceEvent::ServiceRemoved(_, fullname) => {
+            seen_peers.lock().await.remove(&fullname);
             tracing::info!("Peer lost: {fullname}");
             let _ = event_tx
                 .send(AppEvent::PeerLost { id: fullname })
                 .await;
         }
+
         _ => {}
     }
 }

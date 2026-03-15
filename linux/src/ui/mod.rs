@@ -1,19 +1,7 @@
-/// GTK4 / Libadwaita user interface.
-///
-/// Layout:
-///   AdwApplicationWindow
-///   └── AdwToolbarView
-///       ├── AdwHeaderBar  (top)
-///       ├── Main content
-///       │   ├── "No devices" placeholder  (shown when list is empty)
-///       │   └── ScrolledWindow > ListBox  (device rows)
-///       └── Status bar label             (bottom)
-///
-/// Drag-and-drop: the window accepts file drops.
-/// When a file is dropped, the UI checks which device row the cursor is over
-/// and sends `AppCommand::SendFile` through the command channel.
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::net::SocketAddr;
+use std::rc::Rc;
 
 use async_channel::{Receiver, Sender};
 use gtk4::gdk;
@@ -30,17 +18,13 @@ pub fn build_ui(
     event_rx: Receiver<AppEvent>,
     cmd_tx: Sender<AppCommand>,
 ) {
-    // ── If first run (no device name saved), show setup dialog first ─────────
-    // For now we use the default config; a setup dialog can be added later.
-    // TODO: show AdwDialog asking for device name if config was never saved.
-
-    let window = build_main_window(app, config.clone(), event_rx, cmd_tx);
+    let window = build_main_window(app, Rc::new(RefCell::new(config)), event_rx, cmd_tx);
     window.present();
 }
 
 fn build_main_window(
     app: &libadwaita::Application,
-    config: Config,
+    config: Rc<RefCell<Config>>,
     event_rx: Receiver<AppEvent>,
     cmd_tx: Sender<AppCommand>,
 ) -> libadwaita::ApplicationWindow {
@@ -51,29 +35,32 @@ fn build_main_window(
         .default_height(560)
         .build();
 
-    // ── Layout ────────────────────────────────────────────────────────────────
     let toolbar_view = libadwaita::ToolbarView::new();
     window.set_content(Some(&toolbar_view));
 
-    // Header bar
+    // ── Header bar ────────────────────────────────────────────────────────────
     let header = libadwaita::HeaderBar::new();
     toolbar_view.add_top_bar(&header);
 
-    // Device name label in the header
     let device_label = gtk4::Label::builder()
-        .label(&format!("📡  {}", config.device_name))
+        .label(&config.borrow().device_name)
         .css_classes(["caption"])
         .build();
     header.pack_start(&device_label);
 
-    // Main content box
+    let settings_btn = gtk4::Button::builder()
+        .icon_name("preferences-system-symbolic")
+        .tooltip_text("Settings")
+        .build();
+    header.pack_end(&settings_btn);
+
+    // ── Main content ──────────────────────────────────────────────────────────
     let content = gtk4::Box::builder()
         .orientation(gtk4::Orientation::Vertical)
         .spacing(0)
         .build();
     toolbar_view.set_content(Some(&content));
 
-    // ── Device list ───────────────────────────────────────────────────────────
     let list_box = gtk4::ListBox::builder()
         .selection_mode(gtk4::SelectionMode::None)
         .css_classes(["boxed-list"])
@@ -89,7 +76,6 @@ fn build_main_window(
         .build();
     content.append(&scrolled);
 
-    // Empty state placeholder
     let empty_label = gtk4::Label::builder()
         .label("Searching for devices on your network…")
         .css_classes(["dim-label"])
@@ -98,7 +84,6 @@ fn build_main_window(
         .build();
     content.append(&empty_label);
 
-    // Status bar at the bottom
     let status_bar = gtk4::Label::builder()
         .label("Ready")
         .css_classes(["caption", "dim-label"])
@@ -106,34 +91,39 @@ fn build_main_window(
         .build();
     toolbar_view.add_bottom_bar(&status_bar);
 
-    // ── Drag-and-drop ─────────────────────────────────────────────────────────
-    // peer_addr is tracked via cursor position hack for simplicity.
-    // Each device row will install its own DropTarget.
-    // (Wired up in `add_peer_row` below.)
+    // ── Settings button ───────────────────────────────────────────────────────
+    {
+        let config = config.clone();
+        let cmd_tx = cmd_tx.clone();
+        let window = window.clone();
+        let device_label = device_label.clone();
+        settings_btn.connect_clicked(move |_| {
+            show_preferences(&window, config.clone(), cmd_tx.clone(), device_label.clone());
+        });
+    }
 
-    // ── Track peers in a shared map (id → SocketAddr) ────────────────────────
-    // We use a Rc<RefCell<...>> because GTK closures are single-threaded.
-    let peers: std::rc::Rc<std::cell::RefCell<HashMap<String, (String, SocketAddr)>>> =
-        std::rc::Rc::new(std::cell::RefCell::new(HashMap::new()));
+    // ── Peer tracking ─────────────────────────────────────────────────────────
+    let peers: Rc<RefCell<HashMap<String, (String, SocketAddr)>>> =
+        Rc::new(RefCell::new(HashMap::new()));
 
-    // ── Event loop: receive AppEvents from the network thread ─────────────────
-    let list_box_clone = list_box.clone();
-    let empty_label_clone = empty_label.clone();
-    let status_bar_clone = status_bar.clone();
-    let peers_clone = peers.clone();
-    let cmd_tx_clone = cmd_tx.clone();
-    let window_clone = window.clone();
+    // ── Event loop ────────────────────────────────────────────────────────────
+    let list_box_c = list_box.clone();
+    let empty_label_c = empty_label.clone();
+    let status_bar_c = status_bar.clone();
+    let peers_c = peers.clone();
+    let cmd_tx_c = cmd_tx.clone();
+    let window_c = window.clone();
 
     glib::MainContext::default().spawn_local(async move {
         while let Ok(event) = event_rx.recv().await {
             handle_event(
                 event,
-                &list_box_clone,
-                &empty_label_clone,
-                &status_bar_clone,
-                &peers_clone,
-                &cmd_tx_clone,
-                &window_clone,
+                &list_box_c,
+                &empty_label_c,
+                &status_bar_c,
+                &peers_c,
+                &cmd_tx_c,
+                &window_c,
             );
         }
     });
@@ -146,7 +136,7 @@ fn handle_event(
     list_box: &gtk4::ListBox,
     empty_label: &gtk4::Label,
     status_bar: &gtk4::Label,
-    peers: &std::rc::Rc<std::cell::RefCell<HashMap<String, (String, SocketAddr)>>>,
+    peers: &Rc<RefCell<HashMap<String, (String, SocketAddr)>>>,
     cmd_tx: &Sender<AppCommand>,
     window: &libadwaita::ApplicationWindow,
 ) {
@@ -161,7 +151,7 @@ fn handle_event(
             peers.borrow_mut().remove(&id);
             remove_peer_row(list_box, &id);
             update_empty_state(list_box, empty_label);
-            status_bar.set_label(&format!("Device '{id}' left the network"));
+            status_bar.set_label("A device left the network.");
         }
 
         AppEvent::IncomingRequest {
@@ -170,14 +160,7 @@ fn handle_event(
             file_name,
             size_bytes,
         } => {
-            show_transfer_request(
-                window,
-                transfer_id,
-                sender_name,
-                file_name,
-                size_bytes,
-                cmd_tx,
-            );
+            show_transfer_request(window, transfer_id, sender_name, file_name, size_bytes, cmd_tx);
         }
 
         AppEvent::TransferProgress {
@@ -194,20 +177,115 @@ fn handle_event(
             ));
         }
 
-        AppEvent::TransferComplete { saved_to, .. } => {
-            status_bar.set_label(&format!(
-                "✓  Saved to {}",
-                saved_to.display()
-            ));
+        AppEvent::TransferComplete { .. } => {
+            status_bar.set_label("Transfer complete.");
         }
 
         AppEvent::TransferError { message, .. } => {
-            status_bar.set_label(&format!("✗  {message}"));
+            status_bar.set_label(&format!("Transfer failed: {message}"));
         }
     }
 }
 
-/// Add a device row with its own drop target.
+// ── Preferences window ────────────────────────────────────────────────────────
+
+fn show_preferences(
+    parent: &libadwaita::ApplicationWindow,
+    config: Rc<RefCell<Config>>,
+    cmd_tx: Sender<AppCommand>,
+    device_label: gtk4::Label,
+) {
+    let prefs = libadwaita::PreferencesWindow::builder()
+        .transient_for(parent)
+        .modal(true)
+        .destroy_with_parent(true)
+        .title("Settings")
+        .build();
+
+    let page = libadwaita::PreferencesPage::new();
+
+    // ── Device group ──────────────────────────────────────────────────────────
+    let device_group = libadwaita::PreferencesGroup::builder()
+        .title("Device")
+        .build();
+
+    let name_row = libadwaita::EntryRow::builder()
+        .title("Device Name")
+        .text(&config.borrow().device_name)
+        .build();
+    device_group.add(&name_row);
+    page.add(&device_group);
+
+    // ── Transfers group ───────────────────────────────────────────────────────
+    let transfers_group = libadwaita::PreferencesGroup::builder()
+        .title("Transfers")
+        .build();
+
+    let folder_row = libadwaita::ActionRow::builder()
+        .title("Download Folder")
+        .subtitle(&config.borrow().download_dir.display().to_string())
+        .activatable(true)
+        .build();
+
+    let choose_btn = gtk4::Button::builder()
+        .icon_name("folder-open-symbolic")
+        .valign(gtk4::Align::Center)
+        .css_classes(["flat"])
+        .tooltip_text("Choose folder")
+        .build();
+    folder_row.add_suffix(&choose_btn);
+    transfers_group.add(&folder_row);
+    page.add(&transfers_group);
+    prefs.add(&page);
+
+    // Folder picker
+    let config_pick = config.clone();
+    let folder_row_pick = folder_row.clone();
+    let prefs_weak = prefs.downgrade();
+    choose_btn.connect_clicked(move |_| {
+        let dialog = gtk4::FileDialog::builder()
+            .title("Choose Download Folder")
+            .modal(true)
+            .build();
+        let config_c = config_pick.clone();
+        let row_c = folder_row_pick.clone();
+        let parent = prefs_weak.upgrade().map(|w| w.upcast::<gtk4::Window>());
+        dialog.select_folder(
+            parent.as_ref(),
+            gtk4::gio::Cancellable::NONE,
+            move |result| {
+                if let Ok(file) = result {
+                    if let Some(path) = file.path() {
+                        config_c.borrow_mut().download_dir = path.clone();
+                        row_c.set_subtitle(&path.display().to_string());
+                    }
+                }
+            },
+        );
+    });
+
+    // Save on close
+    prefs.connect_close_request(move |_| {
+        let new_name = name_row.text().to_string();
+        let mut cfg = config.borrow_mut();
+
+        if !new_name.is_empty() && new_name != cfg.device_name {
+            cfg.device_name = new_name.clone();
+            device_label.set_label(&new_name);
+            let _ = cmd_tx.send_blocking(AppCommand::SetDeviceName(new_name));
+        }
+
+        let _ = cmd_tx.send_blocking(AppCommand::SetDownloadDir(cfg.download_dir.clone()));
+        let _ = cfg.save();
+
+        glib::Propagation::Proceed
+    });
+
+    prefs.present();
+}
+
+// ── Peer rows ─────────────────────────────────────────────────────────────────
+
 fn add_peer_row(
     list_box: &gtk4::ListBox,
     id: &str,
@@ -217,14 +295,12 @@ fn add_peer_row(
 ) {
     let row = libadwaita::ActionRow::builder()
         .title(name)
-        .subtitle(&addr.to_string())
+        .subtitle(&addr.ip().to_string())
         .activatable(false)
         .build();
 
-    // Tag the row with the peer id so we can remove it later
     row.set_widget_name(id);
 
-    // Drop target: accepts file lists
     let drop = gtk4::DropTarget::new(gdk::FileList::static_type(), gdk::DragAction::COPY);
     let cmd_tx = cmd_tx.clone();
     drop.connect_drop(move |_, value, _, _| {
@@ -241,7 +317,6 @@ fn add_peer_row(
         true
     });
     row.add_controller(drop);
-
     list_box.append(&row);
 }
 
@@ -265,7 +340,8 @@ fn update_empty_state(list_box: &gtk4::ListBox, empty_label: &gtk4::Label) {
     empty_label.set_visible(!has_items);
 }
 
-/// Show a confirmation dialog for an incoming transfer request.
+// ── Transfer request dialog ───────────────────────────────────────────────────
+
 fn show_transfer_request(
     window: &libadwaita::ApplicationWindow,
     transfer_id: String,
@@ -308,6 +384,8 @@ fn show_transfer_request(
 
     dialog.present(Some(window));
 }
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 fn human_bytes(b: u64) -> String {
     const K: u64 = 1024;

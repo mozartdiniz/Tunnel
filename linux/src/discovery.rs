@@ -23,14 +23,11 @@ impl Discovery {
     }
 
     /// Announce this device on the LAN.
-    /// `port` is the TCP port our TLS listener is bound to.
-    pub fn advertise(&self, display_name: &str, port: u16) -> Result<()> {
-        // Instance name must be unique — use display_name as base.
-        // The full service name will be "<instance>._tunnel-p2p._tcp.local."
+    /// Returns the mDNS fullname so the caller can filter out self-discovery.
+    pub fn advertise(&self, display_name: &str, port: u16) -> Result<String> {
         let instance_name = sanitize_instance_name(display_name);
-
-        // Hostname for mDNS (must end with ".local.")
         let hostname = format!("{instance_name}.local.");
+        let fullname = format!("{instance_name}.{SERVICE_TYPE}");
 
         let mut properties = HashMap::new();
         properties.insert("display_name".to_string(), display_name.to_string());
@@ -49,6 +46,12 @@ impl Discovery {
 
         self.daemon.register(service)?;
         tracing::info!("mDNS: advertising '{display_name}' on {local_ip}:{port}");
+        Ok(fullname)
+    }
+
+    /// Remove our mDNS announcement (used before re-advertising with a new name).
+    pub fn unregister(&self, fullname: &str) -> Result<()> {
+        self.daemon.unregister(fullname)?;
         Ok(())
     }
 
