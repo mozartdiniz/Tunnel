@@ -5,6 +5,7 @@ import UniformTypeIdentifiers
 
 struct ContentView: View {
     @EnvironmentObject var model: AppModel
+    @State private var showSettings = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -15,6 +16,10 @@ struct ContentView: View {
             statusBar
         }
         .frame(minWidth: 320, minHeight: 400)
+        .sheet(isPresented: $showSettings) {
+            SettingsView()
+                .environmentObject(model)
+        }
         .sheet(item: $model.pendingRequest) { request in
             IncomingRequestSheet(request: request)
                 .environmentObject(model)
@@ -38,13 +43,14 @@ struct ContentView: View {
 
     private var settingsButton: some View {
         Button {
-            openSettings()
+            showSettings = true
         } label: {
             Image(systemName: "gear")
                 .foregroundStyle(.secondary)
         }
         .buttonStyle(.plain)
         .help("Settings")
+        .keyboardShortcut(",", modifiers: .command)
     }
 
     // MARK: Peer List
@@ -110,13 +116,7 @@ struct ContentView: View {
         .padding(.vertical, 8)
     }
 
-    // MARK: Helpers
 
-    private func openSettings() {
-        // Opens the Settings panel (minimal implementation: alert-based for now)
-        // A full implementation would use a separate SettingsView presented as a window
-        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
-    }
 }
 
 // MARK: - PeerRow

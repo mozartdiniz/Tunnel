@@ -10,8 +10,11 @@ final class AppModel: ObservableObject {
     @Published var peers: [Peer] = []
     @Published var statusMessage: String = "Starting…"
     @Published var transferProgress: Double = 0
-    @Published var activeTransfer: String?          // display string, e.g. "Sending photo.jpg…"
-    @Published var pendingRequest: PendingRequest?  // incoming transfer waiting for user decision
+    @Published var activeTransfer: String?
+    @Published var pendingRequest: PendingRequest?
+    @Published var deviceName: String = ""
+    @Published var downloadDir: URL = FileManager.default
+        .urls(for: .downloadsDirectory, in: .userDomainMask)[0]
 
     private var config: Config
     private var tlsManager: TLSManager?
@@ -25,9 +28,9 @@ final class AppModel: ObservableObject {
 
     init(config: Config = .load()) {
         self.config = config
+        self.deviceName = config.deviceName
+        self.downloadDir = config.downloadDir
     }
-
-    var deviceName: String { config.deviceName }
 
     // MARK: - Startup
 
@@ -179,11 +182,13 @@ final class AppModel: ObservableObject {
     func updateDeviceName(_ name: String) {
         config.deviceName = name
         config.save()
+        deviceName = name
     }
 
     func updateDownloadDir(_ url: URL) {
         config.downloadDir = url
         config.save()
+        downloadDir = url
     }
 }
 

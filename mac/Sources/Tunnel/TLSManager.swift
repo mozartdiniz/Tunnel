@@ -156,6 +156,9 @@ actor TLSManager {
             signatureAlgorithm: .ecdsaWithSHA256,
             extensions: try Certificate.Extensions {
                 SubjectAlternativeNames([.dnsName(deviceName), .dnsName("localhost")])
+                // Required for TLS server and client use
+                try ExtendedKeyUsage([.serverAuth, .clientAuth])
+                KeyUsage(digitalSignature: true)
             },
             issuerPrivateKey: swiftKey
         )
@@ -201,16 +204,25 @@ actor TLSManager {
     private static let p12Password = "tunnel-p12-internal-v1"
 
     /// Import a PKCS12 file and return the SecIdentity.
-    /// SecPKCS12Import targets the login keychain, which doesn't require code-signing
-    /// entitlements — unlike SecItemAdd for kSecClassKey which needs data-protection rights.
+    /// We create an unrestricted SecAccess so the TLS stack can sign with the private key
+    /// without triggering a "allow access" keychain confirmation dialog. Without this,
+    /// the server-side TLS handshake silently fails because the key is blocked mid-handshake.
     private static func importP12(at url: URL) throws -> SecIdentity {
         let data = try Data(contentsOf: url)
+
+        // Empty (non-nil) trusted-applications list = any process may use this key without
+        // prompting. nil would default to "calling app only", which blocks the Security
+        // framework's XPC service that does the actual TLS signing on the server side.
+        var accessRef: SecAccess?
+        SecAccessCreate("Tunnel TLS Identity" as CFString, [] as CFArray, &accessRef)
+
+        var options: [String: Any] = [kSecImportExportPassphrase as String: p12Password]
+        if let access = accessRef {
+            options[kSecImportExportAccess as String] = access
+        }
+
         var items: CFArray?
-        let status = SecPKCS12Import(
-            data as CFData,
-            [kSecImportExportPassphrase as String: p12Password] as CFDictionary,
-            &items
-        )
+        let status = SecPKCS12Import(data as CFData, options as CFDictionary, &items)
         guard status == errSecSuccess,
               let arr = items as? [[String: Any]],
               let first = arr.first,

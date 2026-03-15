@@ -16,6 +16,7 @@ final class Discovery {
 
     private var listener: NWListener?
     private var browser: NWBrowser?
+    private var ownServiceName: String = ""   // used to filter self from results
 
     var onPeerFound: ((Peer) -> Void)?
     var onPeerLost: ((String) -> Void)?
@@ -32,6 +33,7 @@ final class Discovery {
         onConnection: @escaping (NWConnection) -> Void
     ) throws {
         self.onIncomingConnection = onConnection
+        self.ownServiceName = deviceName
 
         let params = tlsParameters
         let service = NWListener.Service(
@@ -103,7 +105,9 @@ final class Discovery {
     private func handleAdded(_ result: NWBrowser.Result) {
         guard case .service(let name, let type_, let domain, _) = result.endpoint else { return }
 
-        // Skip our own advertisement
+        // Skip our own advertisement by comparing the Bonjour instance name
+        guard name != ownServiceName else { return }
+
         let fullname = "\(name).\(type_)\(domain)"
 
         var displayName = name
