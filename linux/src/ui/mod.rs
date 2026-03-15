@@ -33,6 +33,7 @@ fn build_main_window(
         .title("Tunnel")
         .default_width(420)
         .default_height(560)
+        .icon_name("dev.tunnel.Tunnel")
         .build();
 
     let toolbar_view = libadwaita::ToolbarView::new();
@@ -74,7 +75,6 @@ fn build_main_window(
         .vexpand(true)
         .child(&list_box)
         .build();
-    content.append(&scrolled);
 
     let empty_label = gtk4::Label::builder()
         .label("Searching for devices on your network…")
@@ -82,7 +82,13 @@ fn build_main_window(
         .vexpand(true)
         .valign(gtk4::Align::Center)
         .build();
-    content.append(&empty_label);
+
+    // Stack switches cleanly between empty state and device list
+    let stack = gtk4::Stack::new();
+    stack.add_named(&empty_label, Some("empty"));
+    stack.add_named(&scrolled, Some("list"));
+    stack.set_visible_child_name("empty");
+    content.append(&stack);
 
     let status_bar = gtk4::Label::builder()
         .label("Ready")
@@ -118,7 +124,7 @@ fn build_main_window(
 
     // ── Event loop ────────────────────────────────────────────────────────────
     let list_box_c = list_box.clone();
-    let empty_label_c = empty_label.clone();
+    let stack_c = stack.clone();
     let status_bar_c = status_bar.clone();
     let progress_bar_c = progress_bar.clone();
     let peers_c = peers.clone();
@@ -130,7 +136,7 @@ fn build_main_window(
             handle_event(
                 event,
                 &list_box_c,
-                &empty_label_c,
+                &stack_c,
                 &status_bar_c,
                 &progress_bar_c,
                 &peers_c,
@@ -146,7 +152,7 @@ fn build_main_window(
 fn handle_event(
     event: AppEvent,
     list_box: &gtk4::ListBox,
-    empty_label: &gtk4::Label,
+    stack: &gtk4::Stack,
     status_bar: &gtk4::Label,
     progress_bar: &gtk4::ProgressBar,
     peers: &Rc<RefCell<HashMap<String, (String, SocketAddr)>>>,
@@ -157,13 +163,13 @@ fn handle_event(
         AppEvent::PeerFound { id, name, addr } => {
             peers.borrow_mut().insert(id.clone(), (name.clone(), addr));
             add_peer_row(list_box, &id, &name, addr, cmd_tx);
-            update_empty_state(list_box, empty_label);
+            update_stack(list_box, stack);
         }
 
         AppEvent::PeerLost { id } => {
             peers.borrow_mut().remove(&id);
             remove_peer_row(list_box, &id);
-            update_empty_state(list_box, empty_label);
+            update_stack(list_box, stack);
             status_bar.set_label("A device left the network.");
         }
 
@@ -370,10 +376,12 @@ fn remove_peer_row(list_box: &gtk4::ListBox, id: &str) {
     }
 }
 
-fn update_empty_state(list_box: &gtk4::ListBox, empty_label: &gtk4::Label) {
-    let has_items = list_box.first_child().is_some();
-    list_box.set_visible(has_items);
-    empty_label.set_visible(!has_items);
+fn update_stack(list_box: &gtk4::ListBox, stack: &gtk4::Stack) {
+    if list_box.first_child().is_some() {
+        stack.set_visible_child_name("list");
+    } else {
+        stack.set_visible_child_name("empty");
+    }
 }
 
 // ── Transfer request dialog ───────────────────────────────────────────────────
