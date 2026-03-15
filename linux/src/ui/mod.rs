@@ -319,6 +319,16 @@ fn add_peer_row(
     addr: SocketAddr,
     cmd_tx: &Sender<AppCommand>,
 ) {
+    // Dedup: if a row for this peer already exists, don't add a duplicate.
+    // This handles periodic mDNS re-announcements.
+    let mut child = list_box.first_child();
+    while let Some(widget) = child {
+        if widget.widget_name() == id {
+            return;
+        }
+        child = widget.next_sibling();
+    }
+
     let row = libadwaita::ActionRow::builder()
         .title(name)
         .subtitle(&addr.ip().to_string())

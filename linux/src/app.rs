@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -79,20 +79,16 @@ pub async fn run_network(
         discovery.advertise(&config.device_name, local_port)?,
     ));
 
-    // seen_peers deduplicates repeated ServiceResolved announcements
-    let seen_peers: Arc<Mutex<HashSet<String>>> = Arc::new(Mutex::new(HashSet::new()));
-
     // Spawn mDNS browsing task
     let browse_rx = discovery.browse()?;
     let event_tx_mdns = event_tx.clone();
     let own_fn = own_fullname.clone();
-    let seen = seen_peers.clone();
     tokio::spawn(async move {
         loop {
             match browse_rx.recv_async().await {
                 Ok(event) => {
                     let current_own = own_fn.read().await.clone();
-                    handle_mdns_event(event, &current_own, &seen, &event_tx_mdns).await;
+                    handle_mdns_event(event, &current_own, &event_tx_mdns).await;
                 }
                 Err(_) => break,
             }
@@ -177,7 +173,6 @@ pub async fn run_network(
                         *own_fullname.write().await = new_fullname;
                         *device_name_accept.write().await = new_name.clone();
                         config.device_name = new_name;
-                        seen_peers.lock().await.clear();
                         tracing::info!("Device name updated, mDNS re-announced");
                     }
                     Err(e) => tracing::error!("Failed to re-advertise: {e}"),
@@ -198,7 +193,6 @@ pub async fn run_network(
 async fn handle_mdns_event(
     event: mdns_sd::ServiceEvent,
     own_fullname: &str,
-    seen_peers: &Arc<Mutex<HashSet<String>>>,
     event_tx: &async_channel::Sender<AppEvent>,
 ) {
     use mdns_sd::ServiceEvent;
@@ -209,15 +203,6 @@ async fn handle_mdns_event(
             // Filter self
             if fullname == own_fullname {
                 return;
-            }
-
-            // Deduplicate: skip if we already sent a PeerFound for this fullname
-            {
-                let mut seen = seen_peers.lock().await;
-                if seen.contains(&fullname) {
-                    return;
-                }
-                seen.insert(fullname.clone());
             }
 
             let addr = match info.get_addresses().iter().next() {
@@ -241,7 +226,6 @@ async fn handle_mdns_event(
         }
 
         ServiceEvent::ServiceRemoved(_, fullname) => {
-            seen_peers.lock().await.remove(&fullname);
             tracing::info!("Peer lost: {fullname}");
             let _ = event_tx
                 .send(AppEvent::PeerLost { id: fullname })
