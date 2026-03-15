@@ -91,6 +91,16 @@ fn build_main_window(
         .build();
     toolbar_view.add_bottom_bar(&status_bar);
 
+    // Progress bar — hidden until a transfer starts
+    let progress_bar = gtk4::ProgressBar::builder()
+        .show_text(true)
+        .margin_start(24)
+        .margin_end(24)
+        .margin_bottom(8)
+        .visible(false)
+        .build();
+    toolbar_view.add_bottom_bar(&progress_bar);
+
     // ── Settings button ───────────────────────────────────────────────────────
     {
         let config = config.clone();
@@ -110,6 +120,7 @@ fn build_main_window(
     let list_box_c = list_box.clone();
     let empty_label_c = empty_label.clone();
     let status_bar_c = status_bar.clone();
+    let progress_bar_c = progress_bar.clone();
     let peers_c = peers.clone();
     let cmd_tx_c = cmd_tx.clone();
     let window_c = window.clone();
@@ -121,6 +132,7 @@ fn build_main_window(
                 &list_box_c,
                 &empty_label_c,
                 &status_bar_c,
+                &progress_bar_c,
                 &peers_c,
                 &cmd_tx_c,
                 &window_c,
@@ -136,6 +148,7 @@ fn handle_event(
     list_box: &gtk4::ListBox,
     empty_label: &gtk4::Label,
     status_bar: &gtk4::Label,
+    progress_bar: &gtk4::ProgressBar,
     peers: &Rc<RefCell<HashMap<String, (String, SocketAddr)>>>,
     cmd_tx: &Sender<AppCommand>,
     window: &libadwaita::ApplicationWindow,
@@ -168,20 +181,33 @@ fn handle_event(
             total_bytes,
             ..
         } => {
-            let pct = bytes_done as f64 / total_bytes as f64 * 100.0;
-            status_bar.set_label(&format!(
-                "Transferring… {:.1}%  ({} / {})",
-                pct,
+            let fraction = bytes_done as f64 / total_bytes as f64;
+            progress_bar.set_fraction(fraction);
+            progress_bar.set_text(Some(&format!(
+                "{} / {}  ({:.1}%)",
                 human_bytes(bytes_done),
-                human_bytes(total_bytes)
-            ));
+                human_bytes(total_bytes),
+                fraction * 100.0,
+            )));
+            progress_bar.set_visible(true);
+            status_bar.set_label("Transferring…");
         }
 
         AppEvent::TransferComplete { .. } => {
-            status_bar.set_label("Transfer complete.");
+            progress_bar.set_fraction(1.0);
+            // Hide the bar after a short delay so the user sees it reach 100%
+            let pb = progress_bar.clone();
+            let sb = status_bar.clone();
+            glib::timeout_add_local_once(std::time::Duration::from_millis(1200), move || {
+                pb.set_visible(false);
+                pb.set_fraction(0.0);
+                sb.set_label("Transfer complete.");
+            });
         }
 
         AppEvent::TransferError { message, .. } => {
+            progress_bar.set_visible(false);
+            progress_bar.set_fraction(0.0);
             status_bar.set_label(&format!("Transfer failed: {message}"));
         }
     }
