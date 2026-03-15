@@ -8,6 +8,7 @@
 use anyhow::Result;
 use mdns_sd::{ServiceDaemon, ServiceEvent, ServiceInfo};
 use std::collections::HashMap;
+use std::net::{IpAddr, Ipv4Addr, UdpSocket};
 
 const SERVICE_TYPE: &str = "_tunnel-p2p._tcp.local.";
 
@@ -34,17 +35,20 @@ impl Discovery {
         let mut properties = HashMap::new();
         properties.insert("display_name".to_string(), display_name.to_string());
 
+        let local_ip = outbound_ipv4()
+            .ok_or_else(|| anyhow::anyhow!("Could not determine local IPv4 address"))?;
+
         let service = ServiceInfo::new(
             SERVICE_TYPE,
             &instance_name,
             &hostname,
-            "", // empty = let mdns-sd pick the local IP
+            IpAddr::V4(local_ip),
             port,
             properties,
         )?;
 
         self.daemon.register(service)?;
-        tracing::info!("mDNS: advertising '{display_name}' on port {port}");
+        tracing::info!("mDNS: advertising '{display_name}' on {local_ip}:{port}");
         Ok(())
     }
 
@@ -53,6 +57,17 @@ impl Discovery {
         let receiver = self.daemon.browse(SERVICE_TYPE)?;
         tracing::info!("mDNS: browsing for {SERVICE_TYPE}");
         Ok(receiver)
+    }
+}
+
+/// Detect the local outbound IPv4 by routing a UDP socket toward a public IP.
+/// No packet is actually sent — the OS just picks the right interface.
+fn outbound_ipv4() -> Option<Ipv4Addr> {
+    let socket = UdpSocket::bind("0.0.0.0:0").ok()?;
+    socket.connect("8.8.8.8:80").ok()?;
+    match socket.local_addr().ok()?.ip() {
+        IpAddr::V4(ip) => Some(ip),
+        _ => None,
     }
 }
 
