@@ -1,0 +1,44 @@
+[package]
+name = "tunnel"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "tunnel"
+path = "src/main.rs"
+
+[dependencies]
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+
+# mDNS / Zeroconf service discovery
+mdns-sd = "0.11"
+
+# TLS — self-signed certs + TOFU (Trust On First Use)
+rcgen = "0.11"
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
+tokio-rustls = "0.26"
+rustls-pemfile = "2"
+
+# GTK4 / Libadwaita UI
+gtk4 = { version = "0.9", features = ["v4_12"] }
+libadwaita = { version = "0.7", features = ["v1_5"] }
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# SHA-256 checksums for file integrity
+sha2 = "0.10"
+hex = "0.4"
+
+# Utilities
+uuid = { version = "1", features = ["v4"] }
+directories = "5"
+anyhow = "1"
+thiserror = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Bridge between tokio tasks and GTK event loop
+async-channel = "2"
