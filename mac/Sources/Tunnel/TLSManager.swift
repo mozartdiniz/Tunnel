@@ -75,21 +75,21 @@ actor TLSManager {
             sec_identity_create(capturedIdentity)!
         )
 
-        // Disable hostname validation — we do TOFU fingerprint checks instead
+        // Server: require the peer (client) to present a certificate.
+        // Client: disable system hostname/chain validation — we use TOFU instead.
         sec_protocol_options_set_peer_authentication_required(
-            tlsOptions.securityProtocolOptions, false
+            tlsOptions.securityProtocolOptions, isServer
         )
 
-        if !isServer {
-            sec_protocol_options_set_verify_block(
-                tlsOptions.securityProtocolOptions,
-                { [weak self] metadata, trust, complete in
-                    guard let self else { complete(false); return }
-                    Task { complete(await self.verifyPeer(metadata: metadata, trust: trust)) }
-                },
-                DispatchQueue.global()
-            )
-        }
+        // Both sides verify the peer's cert using TOFU fingerprint matching.
+        sec_protocol_options_set_verify_block(
+            tlsOptions.securityProtocolOptions,
+            { [weak self] metadata, trust, complete in
+                guard let self else { complete(false); return }
+                Task { complete(await self.verifyPeer(metadata: metadata, trust: trust)) }
+            },
+            DispatchQueue.global()
+        )
 
         return NWParameters(tls: tlsOptions, tcp: NWProtocolTCP.Options())
     }

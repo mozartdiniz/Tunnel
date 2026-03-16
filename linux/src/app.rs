@@ -26,6 +26,8 @@ pub enum AppEvent {
         sender_name: String,
         file_name: String,
         size_bytes: u64,
+        /// First 16 hex chars of the sender's TLS cert SHA-256 fingerprint.
+        peer_fingerprint: String,
     },
     TransferProgress {
         transfer_id: String,

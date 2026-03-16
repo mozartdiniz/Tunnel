@@ -1,7 +1,7 @@
 /// File transfer engine.
 ///
-/// `send_file`    — outgoing: connect to peer, handshake, stream bytes.
-/// `receive_file` — incoming: accept TLS conn, handshake, save bytes.
+/// `send_file`    — outgoing: connect to peer, handshake (presents our cert), stream bytes.
+/// `receive_file` — incoming: accept TLS conn (requires client cert), handshake, save bytes.
 ///
 /// Both sides verify the SHA-256 checksum at the end.
 use std::net::SocketAddr;
@@ -9,6 +9,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use anyhow::{bail, Result};
+use nix::sys::statvfs::statvfs;
 use sha2::{Digest, Sha256};
 use tokio::fs::File;
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufWriter};
@@ -42,9 +43,8 @@ pub async fn send_file(
         .unwrap_or("file")
         .to_string();
 
-    // Connect + TLS handshake
+    // Connect + TLS handshake (presents our client cert to the receiver)
     let stream = TcpStream::connect(peer_addr).await?;
-    // Use the peer IP as the server name for TOFU lookup
     let server_name = ServerName::try_from(peer_addr.ip().to_string())
         .map_err(|e| anyhow::anyhow!("Invalid server name: {e}"))?;
     let mut tls_stream = tls.connector.connect(server_name, stream).await?;
@@ -148,8 +148,26 @@ pub async fn receive_file(
     event_tx: async_channel::Sender<AppEvent>,
     pending: PendingMap,
 ) -> Result<()> {
-    let mut tls_stream = tls.acceptor.accept(stream).await?;
-    tracing::debug!("TLS handshake complete with {peer_addr}");
+    // Build a per-connection acceptor that requires and TOFU-verifies the client cert.
+    let acceptor = tls.make_acceptor_for_peer(&peer_addr.ip().to_string())?;
+    let tls_stream = acceptor.accept(stream).await?;
+
+    // Extract the peer's cert fingerprint (first 16 hex chars = 8 bytes, shown in UI).
+    let peer_fingerprint = {
+        let fp = tls_stream
+            .get_ref()
+            .1
+            .peer_certificates()
+            .and_then(|certs| certs.first())
+            .map(TlsStack::fingerprint);
+        fp.map(|f| f[..16].to_string())
+            .unwrap_or_else(|| "unknown".to_string())
+    };
+    let mut tls_stream = tls_stream;
+
+    tracing::debug!(
+        "TLS handshake complete with {peer_addr} (fp: {peer_fingerprint})"
+    );
 
     // Read ASK
     let ask = protocol::read_message(&mut tls_stream).await?;
@@ -167,9 +185,7 @@ pub async fn receive_file(
     // Notify UI and wait for user decision
     let (decision_tx, decision_rx) = tokio::sync::oneshot::channel::<bool>();
     {
-        let mut map: tokio::sync::MutexGuard<
-            std::collections::HashMap<String, tokio::sync::oneshot::Sender<bool>>,
-        > = pending.lock().await;
+        let mut map = pending.lock().await;
         map.insert(transfer_id.clone(), decision_tx);
     }
     let _ = event_tx
@@ -178,6 +194,7 @@ pub async fn receive_file(
             sender_name: sender_name.clone(),
             file_name: file_name.clone(),
             size_bytes,
+            peer_fingerprint: peer_fingerprint.clone(),
         })
         .await;
 
@@ -200,6 +217,18 @@ pub async fn receive_file(
     if !accepted {
         tracing::info!("User denied transfer from {peer_addr}");
         return Ok(());
+    }
+
+    // Check available disk space before creating the file
+    {
+        let stat = statvfs(&config.download_dir)
+            .map_err(|e| anyhow::anyhow!("statvfs failed: {e}"))?;
+        let available = stat.blocks_available() as u64 * stat.fragment_size() as u64;
+        if size_bytes > available {
+            bail!(
+                "Not enough disk space: need {size_bytes} bytes, only {available} available"
+            );
+        }
     }
 
     // Receive file bytes
@@ -268,10 +297,12 @@ pub async fn receive_file(
             })
             .await;
     } else {
+        // Delete the corrupt file so it doesn't linger on disk.
+        tokio::fs::remove_file(&dest_path).await.ok();
         let _ = event_tx
             .send(AppEvent::TransferError {
                 transfer_id,
-                message: "Checksum mismatch — file may be corrupted".into(),
+                message: "Checksum mismatch — corrupt file deleted".into(),
             })
             .await;
     }
@@ -282,10 +313,16 @@ pub async fn receive_file(
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 fn sanitize_filename(name: &str) -> String {
-    name.chars()
+    let sanitized: String = name
+        .chars()
         .map(|c| match c {
             '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|' => '_',
             c => c,
         })
-        .collect()
+        .collect();
+    // Reject reserved path components that could escape the download directory.
+    if sanitized == ".." || sanitized == "." {
+        return "file".to_string();
+    }
+    sanitized
 }

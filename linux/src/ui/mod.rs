@@ -250,8 +250,17 @@ fn handle_event(
             sender_name,
             file_name,
             size_bytes,
+            peer_fingerprint,
         } => {
-            show_transfer_request(window, transfer_id, sender_name, file_name, size_bytes, cmd_tx);
+            show_transfer_request(
+                window,
+                transfer_id,
+                sender_name,
+                file_name,
+                size_bytes,
+                peer_fingerprint,
+                cmd_tx,
+            );
         }
 
         AppEvent::TransferProgress {
@@ -464,12 +473,13 @@ fn show_transfer_request(
     sender_name: String,
     file_name: String,
     size_bytes: u64,
+    peer_fingerprint: String,
     cmd_tx: &Sender<AppCommand>,
 ) {
     let dialog = libadwaita::AlertDialog::builder()
         .heading(format!("{sender_name} wants to send you a file"))
         .body(format!(
-            "{file_name}  ({})\n\nDo you want to accept?",
+            "{file_name}  ({})\n\nVerified identity: {peer_fingerprint}…\n\nDo you want to accept?",
             human_bytes(size_bytes)
         ))
         .default_response("accept")

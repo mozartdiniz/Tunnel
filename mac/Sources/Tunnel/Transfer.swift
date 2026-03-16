@@ -243,10 +243,15 @@ private func receiveMessage(_ conn: NWConnection) async throws -> TunnelMessage 
 // MARK: - Filename sanitization
 
 private func sanitizeFilename(_ name: String) -> String {
-    name.unicodeScalars
+    let sanitized = name.unicodeScalars
         .map { "/\\:*?\"<>|".unicodeScalars.contains($0) ? Character("_") : Character($0) }
         .map(String.init)
         .joined()
+    // Reject reserved path components that could escape the download directory.
+    if sanitized == ".." || sanitized == "." {
+        return "file"
+    }
+    return sanitized
 }
 
 // MARK: - SHA256 hex helper
