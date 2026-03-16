@@ -22,6 +22,7 @@ use crate::protocol::{self, Message, ResponseStatus, PROTOCOL_VERSION};
 use crate::tls::TlsStack;
 
 const CHUNK_SIZE: usize = 64 * 1024; // 64 KiB
+const MAX_FILE_SIZE: u64 = 10 * 1024 * 1024 * 1024; // 10 GiB
 
 // ── Outgoing ─────────────────────────────────────────────────────────────────
 
@@ -149,7 +150,7 @@ pub async fn receive_file(
     pending: PendingMap,
 ) -> Result<()> {
     // Build a per-connection acceptor that requires and TOFU-verifies the client cert.
-    let acceptor = tls.make_acceptor_for_peer(&peer_addr.ip().to_string())?;
+    let acceptor = tls.make_acceptor_for_peer()?;
     let tls_stream = acceptor.accept(stream).await?;
 
     // Extract the peer's cert fingerprint (first 16 hex chars = 8 bytes, shown in UI).
@@ -181,6 +182,10 @@ pub async fn receive_file(
         } => (transfer_id, sender_name, file_name, size_bytes),
         other => bail!("Expected ASK, got {other:?}"),
     };
+
+    if size_bytes > MAX_FILE_SIZE {
+        bail!("Offered file is too large ({size_bytes} bytes; limit is {MAX_FILE_SIZE})");
+    }
 
     // Notify UI and wait for user decision
     let (decision_tx, decision_rx) = tokio::sync::oneshot::channel::<bool>();
@@ -231,10 +236,11 @@ pub async fn receive_file(
         }
     }
 
-    // Receive file bytes
+    // Receive file bytes — write to a temp file first; rename to final path only on checksum OK.
     let safe_name = sanitize_filename(&file_name);
     let dest_path = config.download_dir.join(&safe_name);
-    let dest_file = File::create(&dest_path).await?;
+    let temp_path = config.download_dir.join(format!(".{}.tmp", transfer_id));
+    let dest_file = File::create(&temp_path).await?;
     let mut writer = BufWriter::new(dest_file);
 
     let mut received: u64 = 0;
@@ -290,6 +296,8 @@ pub async fn receive_file(
     .await?;
 
     if status == ResponseStatus::ChecksumOk {
+        // Atomically move the temp file into the final download location.
+        tokio::fs::rename(&temp_path, &dest_path).await?;
         let _ = event_tx
             .send(AppEvent::TransferComplete {
                 transfer_id,
@@ -297,12 +305,12 @@ pub async fn receive_file(
             })
             .await;
     } else {
-        // Delete the corrupt file so it doesn't linger on disk.
-        tokio::fs::remove_file(&dest_path).await.ok();
+        // Delete the temp file — nothing ever appeared in the download folder.
+        tokio::fs::remove_file(&temp_path).await.ok();
         let _ = event_tx
             .send(AppEvent::TransferError {
                 transfer_id,
-                message: "Checksum mismatch — corrupt file deleted".into(),
+                message: "Checksum mismatch — transfer discarded".into(),
             })
             .await;
     }

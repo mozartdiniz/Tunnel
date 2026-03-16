@@ -86,10 +86,8 @@ impl TlsStack {
     }
 
     /// Build a TLS acceptor that requires and TOFU-verifies the connecting client's cert.
-    /// Call once per accepted TCP connection (peer IP is baked into the verifier).
-    pub fn make_acceptor_for_peer(&self, peer_ip: &str) -> Result<tokio_rustls::TlsAcceptor> {
+    pub fn make_acceptor_for_peer(&self) -> Result<tokio_rustls::TlsAcceptor> {
         let verifier = Arc::new(TofuClientVerifier {
-            peer_key: peer_ip.to_string(),
             store: Arc::clone(&self.client_tofu),
         });
         let key = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(self.key_bytes.clone()));
@@ -164,7 +162,7 @@ impl TofuStore {
 
 // ── Server cert verifier (used by the sending side) ───────────────────────────
 
-/// Verifies the receiver's server cert when we connect outward. TOFU keyed by server IP.
+/// Verifies the receiver's server cert when we connect outward. TOFU keyed by cert fingerprint.
 #[derive(Debug)]
 struct TofuVerifier {
     store: TofuStore,
@@ -181,13 +179,13 @@ impl ServerCertVerifier for TofuVerifier {
         &self,
         end_entity: &CertificateDer<'_>,
         _intermediates: &[CertificateDer<'_>],
-        server_name: &ServerName<'_>,
+        _server_name: &ServerName<'_>,
         _ocsp_response: &[u8],
         _now: UnixTime,
     ) -> Result<ServerCertVerified, Error> {
+        // Key by fingerprint rather than IP so TOFU survives DHCP reassignment.
         let fp = TlsStack::fingerprint(end_entity);
-        let key = server_name.to_str().to_string();
-        self.store.verify(&key, &fp)?;
+        self.store.verify(&fp, &fp)?;
         Ok(ServerCertVerified::assertion())
     }
 
@@ -228,11 +226,9 @@ impl ServerCertVerifier for TofuVerifier {
 
 // ── Client cert verifier (used by the receiving side) ─────────────────────────
 
-/// Verifies the sender's client cert on an incoming connection. TOFU keyed by peer IP.
-/// Created fresh per connection so the peer IP is baked in at construction time.
+/// Verifies the sender's client cert on an incoming connection. TOFU keyed by cert fingerprint.
 #[derive(Debug)]
 struct TofuClientVerifier {
-    peer_key: String,
     store: Arc<TofuStore>,
 }
 
@@ -251,8 +247,9 @@ impl ClientCertVerifier for TofuClientVerifier {
         _intermediates: &[CertificateDer<'_>],
         _now: UnixTime,
     ) -> Result<ClientCertVerified, Error> {
+        // Key by fingerprint rather than IP so TOFU survives DHCP reassignment.
         let fp = TlsStack::fingerprint(end_entity);
-        self.store.verify(&self.peer_key, &fp)?;
+        self.store.verify(&fp, &fp)?;
         Ok(ClientCertVerified::assertion())
     }
 
