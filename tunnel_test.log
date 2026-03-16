@@ -1,0 +1,9 @@
+[2m2026-03-16T11:45:30.732105Z[0m [34mDEBUG[0m [2mtunnel::tls[0m[2m:[0m Loading existing TLS identity from disk
+[2m2026-03-16T11:45:30.732502Z[0m [32m INFO[0m [2mtunnel::app[0m[2m:[0m TLS identity ready (device: Lenovo)
+[2m2026-03-16T11:45:30.732606Z[0m [32m INFO[0m [2mtunnel::app[0m[2m:[0m Listening on port 45831
+[2m2026-03-16T11:45:30.732961Z[0m [32m INFO[0m [2mtunnel::discovery[0m[2m:[0m mDNS: advertising 'Lenovo' on 192.168.0.152:45831
+[2m2026-03-16T11:45:30.733028Z[0m [32m INFO[0m [2mtunnel::discovery[0m[2m:[0m mDNS: browsing for _tunnel-p2p._tcp.local.
+MESA-INTEL: warning: ../src/intel/vulkan/anv_formats.c:993: FINISHME: support more multi-planar formats with DRM modifiers
+MESA-INTEL: warning: ../src/intel/vulkan/anv_formats.c:959: FINISHME: support YUV colorspace with DRM format modifiers
+[2m2026-03-16T11:45:33.816959Z[0m [34mDEBUG[0m [2mtunnel::transfer[0m[2m:[0m TLS handshake complete with 127.0.0.1:45666
+[2m2026-03-16T11:45:35.813008Z[0m [31mERROR[0m [2mtunnel::app[0m[2m:[0m Receive error from 127.0.0.1:45666: peer closed connection without sending TLS close_notify: https://docs.rs/rustls/latest/rustls/manual/_03_howto/index.html#unexpected-eof

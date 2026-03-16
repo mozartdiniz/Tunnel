@@ -1,0 +1,7 @@
+[2m2026-03-16T11:44:19.192580Z[0m [34mDEBUG[0m [2mtunnel::tls[0m[2m:[0m Loading existing TLS identity from disk
+[2m2026-03-16T11:44:19.193600Z[0m [32m INFO[0m [2mtunnel::app[0m[2m:[0m TLS identity ready (device: Lenovo)
+[2m2026-03-16T11:44:19.195251Z[0m [32m INFO[0m [2mtunnel::app[0m[2m:[0m Listening on port 37783
+[2m2026-03-16T11:44:19.195690Z[0m [32m INFO[0m [2mtunnel::discovery[0m[2m:[0m mDNS: advertising 'Lenovo' on 192.168.0.152:37783
+[2m2026-03-16T11:44:19.195779Z[0m [32m INFO[0m [2mtunnel::discovery[0m[2m:[0m mDNS: browsing for _tunnel-p2p._tcp.local.
+MESA-INTEL: warning: ../src/intel/vulkan/anv_formats.c:993: FINISHME: support more multi-planar formats with DRM modifiers
+MESA-INTEL: warning: ../src/intel/vulkan/anv_formats.c:959: FINISHME: support YUV colorspace with DRM format modifiers
