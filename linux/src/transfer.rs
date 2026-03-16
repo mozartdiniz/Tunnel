@@ -27,12 +27,13 @@ const CHUNK_SIZE: usize = 64 * 1024; // 64 KiB
 pub async fn send_file(
     peer_addr: SocketAddr,
     file_path: PathBuf,
+    sender_name: String,
     tls: Arc<TlsStack>,
     event_tx: async_channel::Sender<AppEvent>,
 ) -> Result<()> {
     let transfer_id = uuid::Uuid::new_v4().to_string();
 
-    // Open file and compute size + checksum before connecting
+    // Open file and read metadata before connecting
     let mut file = File::open(&file_path).await?;
     let size_bytes = file.metadata().await?.len();
     let file_name = file_path
@@ -40,8 +41,6 @@ pub async fn send_file(
         .and_then(|n| n.to_str())
         .unwrap_or("file")
         .to_string();
-
-    let checksum = checksum_file(&file_path).await?;
 
     // Connect + TLS handshake
     let stream = TcpStream::connect(peer_addr).await?;
@@ -58,7 +57,7 @@ pub async fn send_file(
         &Message::Ask {
             version: PROTOCOL_VERSION,
             transfer_id: transfer_id.clone(),
-            sender_name: String::new(), // filled in by receiver from mDNS / TLS identity
+            sender_name,
             file_name: file_name.clone(),
             size_bytes,
         },
@@ -83,14 +82,16 @@ pub async fn send_file(
         other => bail!("Unexpected message: {other:?}"),
     }
 
-    // Stream file bytes with progress updates
+    // Stream file bytes with progress updates; compute checksum inline (single read)
     let mut buf = vec![0u8; CHUNK_SIZE];
     let mut bytes_sent: u64 = 0;
+    let mut hasher = Sha256::new();
     loop {
         let n = file.read(&mut buf).await?;
         if n == 0 {
             break;
         }
+        hasher.update(&buf[..n]);
         tls_stream.write_all(&buf[..n]).await?;
         bytes_sent += n as u64;
         let _ = event_tx
@@ -103,11 +104,11 @@ pub async fn send_file(
     }
     tls_stream.flush().await?;
 
-    // Send checksum
+    // Send checksum computed during streaming
     protocol::write_message(
         &mut tls_stream,
         &Message::Done {
-            checksum_sha256: checksum,
+            checksum_sha256: hex::encode(hasher.finalize()),
         },
     )
     .await?;
@@ -279,20 +280,6 @@ pub async fn receive_file(
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-async fn checksum_file(path: &PathBuf) -> Result<String> {
-    let mut file = File::open(path).await?;
-    let mut hasher = Sha256::new();
-    let mut buf = vec![0u8; CHUNK_SIZE];
-    loop {
-        let n = file.read(&mut buf).await?;
-        if n == 0 {
-            break;
-        }
-        hasher.update(&buf[..n]);
-    }
-    Ok(hex::encode(hasher.finalize()))
-}
 
 fn sanitize_filename(name: &str) -> String {
     name.chars()

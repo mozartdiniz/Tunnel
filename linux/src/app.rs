@@ -147,8 +147,9 @@ pub async fn run_network(
             } => {
                 let tls = tls.clone();
                 let etx = event_tx.clone();
+                let name = device_name_accept.read().await.clone();
                 tokio::spawn(async move {
-                    if let Err(e) = send_file(peer_addr, file_path, tls, etx).await {
+                    if let Err(e) = send_file(peer_addr, file_path, name, tls, etx).await {
                         tracing::error!("Send error: {e:#}");
                     }
                 });
