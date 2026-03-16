@@ -57,20 +57,7 @@ fn build_main_window(
             &css,
             gtk4::STYLE_PROVIDER_PRIORITY_APPLICATION,
         );
-
-        // Register our assets folder so symbolic SVGs can be loaded by name.
-        // NOTE: proper production fix is GResource bundles (see GNOME-2 in QUALITY.md).
-        let theme = gtk4::IconTheme::for_display(&display);
-        // When installed: look for an `assets/` dir adjacent to the binary.
-        if let Some(exe_dir) = std::env::current_exe()
-            .ok()
-            .and_then(|p| p.canonicalize().ok())
-            .and_then(|p| p.parent().map(|p| p.to_path_buf()))
-        {
-            theme.add_search_path(exe_dir.join("assets"));
-        }
-        // Fallback for `cargo run` from the project root.
-        theme.add_search_path("src/assets");
+        gtk4::IconTheme::for_display(&display).add_search_path("src/assets");
     }
 
     // ── Header bar ────────────────────────────────────────────────────────────

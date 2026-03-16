@@ -34,13 +34,9 @@ The receiver never fills it in — it just uses what it received. The transfer r
 
 ### BUG-2 — Icon search path is a hardcoded relative path
 **File:** `src/ui/mod.rs:63`
-**Status:** fixed (interim — see GNOME-2 for the proper GResource solution)
+**Status:** fixed (switched to built-in `system-search-symbolic`; custom SVG and path lookup removed)
 
-```rust
-gtk4::IconTheme::for_display(&display).add_search_path("src/assets");
-```
-
-Only works when launched from the project root. Silently fails as a Flatpak or system install. Fix: use GResource bundles or resolve path relative to the binary at runtime.
+The custom `search-spinner-symbolic.svg` was never found because `add_search_path` requires a proper `hicolor/scalable/<category>/` directory tree, not a flat directory. The Inkscape-generated SVG also used features (patterns, sodipodi namespace) that librsvg cannot render. Fix: use the standard `system-search-symbolic` icon which is always present in the GTK/GNOME icon theme.
 
 ---
 
