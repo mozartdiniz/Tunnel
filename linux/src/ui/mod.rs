@@ -39,15 +39,47 @@ fn build_main_window(
     let toolbar_view = libadwaita::ToolbarView::new();
     window.set_content(Some(&toolbar_view));
 
+    // ── Spinning-icon CSS ─────────────────────────────────────────────────────
+    let css = gtk4::CssProvider::new();
+    css.load_from_string(
+        "@keyframes spin {
+            from { transform: rotate(0deg); }
+            to   { transform: rotate(360deg); }
+        }
+        .spinning-icon {
+            animation: spin 3s linear infinite;
+            transform-origin: center center;
+        }",
+    );
+    if let Some(display) = gdk::Display::default() {
+        gtk4::style_context_add_provider_for_display(
+            &display,
+            &css,
+            gtk4::STYLE_PROVIDER_PRIORITY_APPLICATION,
+        );
+
+        // Register our assets folder so symbolic SVGs can be loaded by name
+        gtk4::IconTheme::for_display(&display)
+            .add_search_path("src/assets");
+    }
+
     // ── Header bar ────────────────────────────────────────────────────────────
     let header = libadwaita::HeaderBar::new();
     toolbar_view.add_top_bar(&header);
 
-    let device_label = gtk4::Label::builder()
-        .label(&config.borrow().device_name)
-        .css_classes(["caption"])
+    // Title + device name subtitle in the centre
+    let window_title = libadwaita::WindowTitle::builder()
+        .title("Tunnel")
+        .subtitle(&config.borrow().device_name)
         .build();
-    header.pack_start(&device_label);
+    header.set_title_widget(Some(&window_title));
+
+    // Refresh button — top-left corner
+    let refresh_btn = gtk4::Button::builder()
+        .icon_name("view-refresh-symbolic")
+        .tooltip_text("Refresh peer list")
+        .build();
+    header.pack_start(&refresh_btn);
 
     let settings_btn = gtk4::Button::builder()
         .icon_name("preferences-system-symbolic")
@@ -76,26 +108,54 @@ fn build_main_window(
         .child(&list_box)
         .build();
 
-    let empty_label = gtk4::Label::builder()
-        .label("Searching for devices on your network…")
-        .css_classes(["dim-label"])
+    // Empty state: large spinning icon + bold title + faint subtitle (Impression-style)
+    let empty_box = gtk4::Box::builder()
+        .orientation(gtk4::Orientation::Vertical)
+        .spacing(12)
         .vexpand(true)
         .valign(gtk4::Align::Center)
+        .halign(gtk4::Align::Center)
         .build();
+
+    let search_icon = gtk4::Image::builder()
+        .icon_name("search-spinner-symbolic")
+        .pixel_size(96)
+        .build();
+
+    search_icon.add_css_class("dim-label");
+    search_icon.add_css_class("spinning-icon");
+
+    let empty_title = gtk4::Label::builder()
+        .label("Searching…")
+        .css_classes(["title-2"])
+        .margin_top(8)
+        .build();
+
+    let empty_label = gtk4::Label::builder()
+        .label("Looking for devices on your network")
+        .css_classes(["dim-label"])
+        .build();
+
+    empty_box.append(&search_icon);
+    empty_box.append(&empty_title);
+    empty_box.append(&empty_label);
 
     // Stack switches cleanly between empty state and device list
     let stack = gtk4::Stack::new();
-    stack.add_named(&empty_label, Some("empty"));
+    stack.add_named(&empty_box, Some("empty"));
     stack.add_named(&scrolled, Some("list"));
     stack.set_visible_child_name("empty");
     content.append(&stack);
 
-    let status_bar = gtk4::Label::builder()
-        .label("Ready")
-        .css_classes(["caption", "dim-label"])
-        .margin_bottom(8)
+    // Status dot — sits centred in the gap between the list and the window edge
+    let status_dot = gtk4::Label::builder()
+        .use_markup(true)
+        .halign(gtk4::Align::Center)
+        .margin_top(14)
+        .margin_bottom(14)
         .build();
-    toolbar_view.add_bottom_bar(&status_bar);
+    status_dot.set_markup("<span color='#33d17a'>●</span>");
+    content.append(&status_dot);
 
     // Progress bar — hidden until a transfer starts
     let progress_bar = gtk4::ProgressBar::builder()
@@ -112,9 +172,9 @@ fn build_main_window(
         let config = config.clone();
         let cmd_tx = cmd_tx.clone();
         let window = window.clone();
-        let device_label = device_label.clone();
+        let window_title = window_title.clone();
         settings_btn.connect_clicked(move |_| {
-            show_preferences(&window, config.clone(), cmd_tx.clone(), device_label.clone());
+            show_preferences(&window, config.clone(), cmd_tx.clone(), window_title.clone());
         });
     }
 
@@ -122,10 +182,26 @@ fn build_main_window(
     let peers: Rc<RefCell<HashMap<String, (String, SocketAddr)>>> =
         Rc::new(RefCell::new(HashMap::new()));
 
+    // ── Refresh button ────────────────────────────────────────────────────────
+    {
+        let list_box = list_box.clone();
+        let peers = peers.clone();
+        let stack = stack.clone();
+        let cmd_tx = cmd_tx.clone();
+        refresh_btn.connect_clicked(move |_| {
+            while let Some(child) = list_box.first_child() {
+                list_box.remove(&child);
+            }
+            peers.borrow_mut().clear();
+            update_stack(&list_box, &stack);
+            let _ = cmd_tx.send_blocking(AppCommand::RefreshPeers);
+        });
+    }
+
     // ── Event loop ────────────────────────────────────────────────────────────
     let list_box_c = list_box.clone();
     let stack_c = stack.clone();
-    let status_bar_c = status_bar.clone();
+    let status_dot_c = status_dot.clone();
     let progress_bar_c = progress_bar.clone();
     let peers_c = peers.clone();
     let cmd_tx_c = cmd_tx.clone();
@@ -137,7 +213,7 @@ fn build_main_window(
                 event,
                 &list_box_c,
                 &stack_c,
-                &status_bar_c,
+                &status_dot_c,
                 &progress_bar_c,
                 &peers_c,
                 &cmd_tx_c,
@@ -153,7 +229,7 @@ fn handle_event(
     event: AppEvent,
     list_box: &gtk4::ListBox,
     stack: &gtk4::Stack,
-    status_bar: &gtk4::Label,
+    status_dot: &gtk4::Label,
     progress_bar: &gtk4::ProgressBar,
     peers: &Rc<RefCell<HashMap<String, (String, SocketAddr)>>>,
     cmd_tx: &Sender<AppCommand>,
@@ -170,7 +246,6 @@ fn handle_event(
             peers.borrow_mut().remove(&id);
             remove_peer_row(list_box, &id);
             update_stack(list_box, stack);
-            status_bar.set_label("A device left the network.");
         }
 
         AppEvent::IncomingRequest {
@@ -196,25 +271,25 @@ fn handle_event(
                 fraction * 100.0,
             )));
             progress_bar.set_visible(true);
-            status_bar.set_label("Transferring…");
+            status_dot.set_markup("<span color='#3584e4'>●</span>");
         }
 
         AppEvent::TransferComplete { .. } => {
             progress_bar.set_fraction(1.0);
-            // Hide the bar after a short delay so the user sees it reach 100%
             let pb = progress_bar.clone();
-            let sb = status_bar.clone();
+            let sd = status_dot.clone();
             glib::timeout_add_local_once(std::time::Duration::from_millis(1200), move || {
                 pb.set_visible(false);
                 pb.set_fraction(0.0);
-                sb.set_label("Transfer complete.");
+                sd.set_markup("<span color='#33d17a'>●</span>");
             });
         }
 
         AppEvent::TransferError { message, .. } => {
             progress_bar.set_visible(false);
             progress_bar.set_fraction(0.0);
-            status_bar.set_label(&format!("Transfer failed: {message}"));
+            status_dot.set_markup("<span color='#e01b24'>●</span>");
+            tracing::warn!("Transfer failed: {message}");
         }
     }
 }
@@ -225,7 +300,7 @@ fn show_preferences(
     parent: &libadwaita::ApplicationWindow,
     config: Rc<RefCell<Config>>,
     cmd_tx: Sender<AppCommand>,
-    device_label: gtk4::Label,
+    window_title: libadwaita::WindowTitle,
 ) {
     let prefs = libadwaita::PreferencesWindow::builder()
         .transient_for(parent)
@@ -303,7 +378,7 @@ fn show_preferences(
 
         if !new_name.is_empty() && new_name != cfg.device_name {
             cfg.device_name = new_name.clone();
-            device_label.set_label(&new_name);
+            window_title.set_subtitle(&new_name);
             let _ = cmd_tx.send_blocking(AppCommand::SetDeviceName(new_name));
         }
 

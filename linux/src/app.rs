@@ -55,6 +55,8 @@ pub enum AppCommand {
     SetDeviceName(String),
     /// User changed download folder in settings.
     SetDownloadDir(PathBuf),
+    /// User pressed the refresh button — restart peer discovery.
+    RefreshPeers,
 }
 
 /// Pending incoming transfers waiting for user confirmation.
@@ -83,7 +85,7 @@ pub async fn run_network(
     let browse_rx = discovery.browse()?;
     let event_tx_mdns = event_tx.clone();
     let own_fn = own_fullname.clone();
-    tokio::spawn(async move {
+    let browse_handle = tokio::spawn(async move {
         loop {
             match browse_rx.recv_async().await {
                 Ok(event) => {
@@ -94,6 +96,7 @@ pub async fn run_network(
             }
         }
     });
+    let mut browse_abort = browse_handle.abort_handle();
 
     // Spawn incoming connection acceptor
     let pending: PendingMap = Arc::new(Mutex::new(HashMap::new()));
@@ -183,6 +186,30 @@ pub async fn run_network(
                 *download_dir.write().await = dir.clone();
                 config.download_dir = dir;
                 tracing::info!("Download dir updated");
+            }
+
+            AppCommand::RefreshPeers => {
+                browse_abort.abort();
+                match discovery.browse() {
+                    Ok(rx) => {
+                        let own_fn = own_fullname.clone();
+                        let etx = event_tx.clone();
+                        let new_handle = tokio::spawn(async move {
+                            loop {
+                                match rx.recv_async().await {
+                                    Ok(ev) => {
+                                        let own = own_fn.read().await.clone();
+                                        handle_mdns_event(ev, &own, &etx).await;
+                                    }
+                                    Err(_) => break,
+                                }
+                            }
+                        });
+                        browse_abort = new_handle.abort_handle();
+                        tracing::info!("Peer discovery restarted");
+                    }
+                    Err(e) => tracing::error!("Failed to restart browse: {e}"),
+                }
             }
         }
     }
