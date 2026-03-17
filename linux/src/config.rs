@@ -48,11 +48,11 @@ impl Default for Config {
             .or_else(|_| std::env::var("USERNAME"))
             .unwrap_or_else(|_| "user".to_string());
 
-        let hostname = std::fs::read_to_string("/etc/hostname")
-            .ok()
-            .map(|s| s.trim().to_string())
-            .filter(|s| !s.is_empty())
-            .unwrap_or_else(|| "computer".to_string());
+        let hostname = gethostname::gethostname()
+            .to_string_lossy()
+            .trim()
+            .to_string();
+        let hostname = if hostname.is_empty() { "computer".to_string() } else { hostname };
 
         let device_name = format!("{username} @ {hostname}");
 

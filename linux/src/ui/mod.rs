@@ -5,6 +5,7 @@ use std::rc::Rc;
 
 use async_channel::{Receiver, Sender};
 use gtk4::gdk;
+use gtk4::gio;
 use gtk4::glib;
 use gtk4::prelude::*;
 use libadwaita::prelude::*;
@@ -18,6 +19,58 @@ pub fn build_ui(
     event_rx: Receiver<AppEvent>,
     cmd_tx: Sender<AppCommand>,
 ) {
+    // ── Register notification actions on the application ─────────────────────
+    // These allow notification buttons (Accept/Deny) to work even when the
+    // window is in the background.
+    {
+        let cmd_tx_a = cmd_tx.clone();
+        let accept = gio::SimpleAction::new(
+            "accept-transfer",
+            Some(&String::static_variant_type()),
+        );
+        accept.connect_activate(move |_, param| {
+            if let Some(id) = param.and_then(|v| v.get::<String>()) {
+                let _ = cmd_tx_a.send_blocking(AppCommand::AcceptTransfer { transfer_id: id });
+            }
+        });
+        app.add_action(&accept);
+    }
+    {
+        let cmd_tx_d = cmd_tx.clone();
+        let deny = gio::SimpleAction::new(
+            "deny-transfer",
+            Some(&String::static_variant_type()),
+        );
+        deny.connect_activate(move |_, param| {
+            if let Some(id) = param.and_then(|v| v.get::<String>()) {
+                let _ = cmd_tx_d.send_blocking(AppCommand::DenyTransfer { transfer_id: id });
+            }
+        });
+        app.add_action(&deny);
+    }
+    {
+        let reveal = gio::SimpleAction::new(
+            "reveal-file",
+            Some(&String::static_variant_type()),
+        );
+        reveal.connect_activate(move |_, param| {
+            if let Some(path_str) = param.and_then(|v| v.get::<String>()) {
+                let file = gio::File::for_path(&path_str);
+                // For a directory `saved_to` open it directly; for a file open its parent.
+                let target = if std::path::Path::new(&path_str).is_dir() {
+                    file
+                } else {
+                    file.parent().unwrap_or(file)
+                };
+                let _ = gio::AppInfo::launch_default_for_uri(
+                    &target.uri(),
+                    gio::AppLaunchContext::NONE,
+                );
+            }
+        });
+        app.add_action(&reveal);
+    }
+
     let window = build_main_window(app, Rc::new(RefCell::new(config)), event_rx, cmd_tx);
     window.present();
 }
@@ -39,39 +92,28 @@ fn build_main_window(
     let toolbar_view = libadwaita::ToolbarView::new();
     window.set_content(Some(&toolbar_view));
 
-    // ── Spinning-icon CSS ─────────────────────────────────────────────────────
+    // ── Load CSS from GResource ───────────────────────────────────────────────
     let css = gtk4::CssProvider::new();
-    css.load_from_string(
-        "@keyframes spin {
-            from { transform: rotate(0deg); }
-            to   { transform: rotate(360deg); }
-        }
-        .spinning-icon {
-            animation: spin 3s linear infinite;
-            transform-origin: center center;
-        }",
-    );
+    css.load_from_resource("/dev/tunnel/Tunnel/style.css");
     if let Some(display) = gdk::Display::default() {
         gtk4::style_context_add_provider_for_display(
             &display,
             &css,
             gtk4::STYLE_PROVIDER_PRIORITY_APPLICATION,
         );
-        gtk4::IconTheme::for_display(&display).add_search_path("src/assets");
+        gtk4::IconTheme::for_display(&display).add_resource_path("/dev/tunnel/Tunnel/icons");
     }
 
     // ── Header bar ────────────────────────────────────────────────────────────
     let header = libadwaita::HeaderBar::new();
     toolbar_view.add_top_bar(&header);
 
-    // Title + device name subtitle in the centre
     let window_title = libadwaita::WindowTitle::builder()
         .title("Tunnel")
         .subtitle(&config.borrow().device_name)
         .build();
     header.set_title_widget(Some(&window_title));
 
-    // Refresh button — top-left corner
     let refresh_btn = gtk4::Button::builder()
         .icon_name("view-refresh-symbolic")
         .tooltip_text("Refresh peer list")
@@ -105,7 +147,6 @@ fn build_main_window(
         .child(&list_box)
         .build();
 
-    // Empty state: large spinning icon + bold title + faint subtitle (Impression-style)
     let empty_box = gtk4::Box::builder()
         .orientation(gtk4::Orientation::Vertical)
         .spacing(12)
@@ -118,7 +159,6 @@ fn build_main_window(
         .icon_name("search-spinner-symbolic")
         .pixel_size(96)
         .build();
-
     search_icon.add_css_class("dim-label");
     search_icon.add_css_class("spinning-icon");
 
@@ -137,24 +177,23 @@ fn build_main_window(
     empty_box.append(&empty_title);
     empty_box.append(&empty_label);
 
-    // Stack switches cleanly between empty state and device list
     let stack = gtk4::Stack::new();
     stack.add_named(&empty_box, Some("empty"));
     stack.add_named(&scrolled, Some("list"));
     stack.set_visible_child_name("empty");
     content.append(&stack);
 
-    // Status dot — sits centred in the gap between the list and the window edge
+    // ── Status dot — CSS classes map to Adwaita named colour tokens ──────────
     let status_dot = gtk4::Label::builder()
-        .use_markup(true)
+        .label("●")
         .halign(gtk4::Align::Center)
         .margin_top(14)
         .margin_bottom(14)
         .build();
-    status_dot.set_markup("<span color='#33d17a'>●</span>");
+    status_dot.add_css_class("status-dot-idle");
     content.append(&status_dot);
 
-    // Progress bar — hidden until a transfer starts
+    // ── Progress bar — hidden until a transfer starts ─────────────────────────
     let progress_bar = gtk4::ProgressBar::builder()
         .show_text(true)
         .margin_start(24)
@@ -249,55 +288,150 @@ fn handle_event(
             transfer_id,
             sender_name,
             file_name,
+            file_count,
             size_bytes,
             peer_fingerprint,
         } => {
             show_transfer_request(
                 window,
-                transfer_id,
-                sender_name,
-                file_name,
+                transfer_id.clone(),
+                sender_name.clone(),
+                file_name.clone(),
+                file_count,
                 size_bytes,
                 peer_fingerprint,
                 cmd_tx,
             );
+            send_incoming_notification(&transfer_id, &sender_name, &file_name, file_count, size_bytes);
         }
 
         AppEvent::TransferProgress {
             bytes_done,
             total_bytes,
+            bytes_per_sec,
+            eta_secs,
             ..
         } => {
-            let fraction = bytes_done as f64 / total_bytes as f64;
+            let fraction = if total_bytes > 0 {
+                (bytes_done as f64 / total_bytes as f64).clamp(0.0, 1.0)
+            } else {
+                0.0
+            };
             progress_bar.set_fraction(fraction);
+
+            let speed_str = if bytes_per_sec > 0 {
+                format!("  {}ps", human_bytes(bytes_per_sec))
+            } else {
+                String::new()
+            };
+            let eta_str = match eta_secs {
+                Some(s) if s < 3600 => format!("  ETA {}", format_eta(s)),
+                Some(s) => format!("  ETA {}", format_eta(s)),
+                None => String::new(),
+            };
             progress_bar.set_text(Some(&format!(
-                "{} / {}  ({:.1}%)",
+                "{} / {}  ({:.1}%){}{}",
                 human_bytes(bytes_done),
                 human_bytes(total_bytes),
                 fraction * 100.0,
+                speed_str,
+                eta_str,
             )));
             progress_bar.set_visible(true);
-            status_dot.set_markup("<span color='#3584e4'>●</span>");
+            set_status(status_dot, "transfer");
         }
 
-        AppEvent::TransferComplete { .. } => {
+        AppEvent::TransferComplete { saved_to, .. } => {
             progress_bar.set_fraction(1.0);
             let pb = progress_bar.clone();
             let sd = status_dot.clone();
+            send_complete_notification(&saved_to);
             glib::timeout_add_local_once(std::time::Duration::from_millis(1200), move || {
                 pb.set_visible(false);
                 pb.set_fraction(0.0);
-                sd.set_markup("<span color='#33d17a'>●</span>");
+                set_status(&sd, "idle");
             });
         }
 
         AppEvent::TransferError { message, .. } => {
             progress_bar.set_visible(false);
             progress_bar.set_fraction(0.0);
-            status_dot.set_markup("<span color='#e01b24'>●</span>");
+            set_status(status_dot, "error");
             tracing::warn!("Transfer failed: {message}");
         }
     }
+}
+
+// ── Status dot helpers ────────────────────────────────────────────────────────
+
+fn set_status(dot: &gtk4::Label, state: &str) {
+    dot.remove_css_class("status-dot-idle");
+    dot.remove_css_class("status-dot-transfer");
+    dot.remove_css_class("status-dot-error");
+    dot.add_css_class(&format!("status-dot-{state}"));
+}
+
+// ── Desktop notifications (roadmap 4.1) ──────────────────────────────────────
+
+fn send_incoming_notification(
+    transfer_id: &str,
+    sender_name: &str,
+    file_name: &str,
+    file_count: usize,
+    size_bytes: u64,
+) {
+    let Some(app) = gio::Application::default() else { return };
+
+    let what = if file_count == 1 {
+        file_name.to_string()
+    } else {
+        format!("{file_count} files")
+    };
+
+    let n = gio::Notification::new("Incoming file");
+    n.set_body(Some(&format!(
+        "{sender_name} wants to send you {what} ({})",
+        human_bytes(size_bytes)
+    )));
+    n.set_default_action("app.focus");
+    n.add_button_with_target_value(
+        "Accept",
+        "app.accept-transfer",
+        Some(&transfer_id.to_variant()),
+    );
+    n.add_button_with_target_value(
+        "Deny",
+        "app.deny-transfer",
+        Some(&transfer_id.to_variant()),
+    );
+    app.send_notification(Some(transfer_id), &n);
+}
+
+fn send_complete_notification(saved_to: &std::path::PathBuf) {
+    let Some(app) = gio::Application::default() else { return };
+
+    let label = if saved_to.is_dir() {
+        saved_to
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("Downloads")
+            .to_string()
+    } else {
+        saved_to
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("Downloads")
+            .to_string()
+    };
+
+    let n = gio::Notification::new("Transfer complete");
+    n.set_body(Some(&format!("Saved to {label}")));
+    n.add_button_with_target_value(
+        "Open folder",
+        "app.reveal-file",
+        Some(&saved_to.to_string_lossy().to_variant()),
+    );
+    app.send_notification(None, &n);
 }
 
 // ── Preferences window ────────────────────────────────────────────────────────
@@ -317,7 +451,6 @@ fn show_preferences(
 
     let page = libadwaita::PreferencesPage::new();
 
-    // ── Device group ──────────────────────────────────────────────────────────
     let device_group = libadwaita::PreferencesGroup::builder()
         .title("Device")
         .build();
@@ -329,7 +462,6 @@ fn show_preferences(
     device_group.add(&name_row);
     page.add(&device_group);
 
-    // ── Transfers group ───────────────────────────────────────────────────────
     let transfers_group = libadwaita::PreferencesGroup::builder()
         .title("Transfers")
         .build();
@@ -351,7 +483,6 @@ fn show_preferences(
     page.add(&transfers_group);
     prefs.add(&page);
 
-    // Folder picker
     let config_pick = config.clone();
     let folder_row_pick = folder_row.clone();
     let prefs_weak = prefs.downgrade();
@@ -377,7 +508,6 @@ fn show_preferences(
         );
     });
 
-    // Save on close
     prefs.connect_close_request(move |_| {
         let new_name = name_row.text().to_string();
         let mut cfg = config.borrow_mut();
@@ -406,8 +536,7 @@ fn add_peer_row(
     addr: SocketAddr,
     cmd_tx: &Sender<AppCommand>,
 ) {
-    // Dedup: if a row for this peer already exists, don't add a duplicate.
-    // This handles periodic mDNS re-announcements.
+    // Dedup — the ID is the LocalSend fingerprint, stable across re-announcements.
     let mut child = list_box.first_child();
     while let Some(widget) = child {
         if widget.widget_name() == id {
@@ -424,17 +553,16 @@ fn add_peer_row(
 
     row.set_widget_name(id);
 
+    // Drop target: collect all dropped files into a single SendFiles command
+    // so multi-file and folder drops are sent as one transfer (roadmap 3.7).
     let drop = gtk4::DropTarget::new(gdk::FileList::static_type(), gdk::DragAction::COPY);
     let cmd_tx = cmd_tx.clone();
     drop.connect_drop(move |_, value, _, _| {
         if let Ok(file_list) = value.get::<gdk::FileList>() {
-            for file in file_list.files() {
-                if let Some(path) = file.path() {
-                    let _ = cmd_tx.send_blocking(AppCommand::SendFile {
-                        peer_addr: addr,
-                        file_path: path,
-                    });
-                }
+            let paths: Vec<std::path::PathBuf> =
+                file_list.files().iter().filter_map(|f| f.path()).collect();
+            if !paths.is_empty() {
+                let _ = cmd_tx.send_blocking(AppCommand::SendFiles { peer_addr: addr, paths });
             }
         }
         true
@@ -472,14 +600,21 @@ fn show_transfer_request(
     transfer_id: String,
     sender_name: String,
     file_name: String,
+    file_count: usize,
     size_bytes: u64,
     peer_fingerprint: String,
     cmd_tx: &Sender<AppCommand>,
 ) {
+    let what = if file_count == 1 {
+        file_name.clone()
+    } else {
+        format!("{file_count} files (including {file_name})")
+    };
+
     let dialog = libadwaita::AlertDialog::builder()
         .heading(format!("{sender_name} wants to send you a file"))
         .body(format!(
-            "{file_name}  ({})\n\nVerified identity: {peer_fingerprint}…\n\nDo you want to accept?",
+            "{what}  ({})\n\nVerified identity: {peer_fingerprint}…\n\nDo you want to accept?",
             human_bytes(size_bytes)
         ))
         .default_response("accept")
@@ -525,5 +660,16 @@ fn human_bytes(b: u64) -> String {
         format!("{:.1} KB", b as f64 / K as f64)
     } else {
         format!("{b} B")
+    }
+}
+
+/// Format seconds into "1h 23m", "4m 5s", or "42s".
+fn format_eta(secs: u64) -> String {
+    if secs >= 3600 {
+        format!("{}h {}m", secs / 3600, (secs % 3600) / 60)
+    } else if secs >= 60 {
+        format!("{}m {}s", secs / 60, secs % 60)
+    } else {
+        format!("{secs}s")
     }
 }

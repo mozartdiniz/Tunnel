@@ -3,9 +3,10 @@
 /// Strategy:
 ///   - On first run: generate a self-signed cert with rcgen and persist it.
 ///   - On subsequent runs: load from disk.
-///   - Peer verification: mutual TOFU (Trust On First Use) on both sides.
-///       Outgoing: we verify the receiver's server cert.
-///       Incoming: we verify the sender's client cert (per-connection verifier).
+///   - Peer verification: TOFU (Trust On First Use) on the sender side.
+///       The receiver presents a self-signed cert; the sender TOFU-verifies it by fingerprint.
+///       No mutual TLS — LocalSend uses one-way HTTPS.
+///   - Tunnel enhancement: TOFU fingerprint persistence (open issue #2430 in LocalSend repo).
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
@@ -13,12 +14,8 @@ use std::sync::{Arc, RwLock};
 use anyhow::Result;
 use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
 use rustls::pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer, ServerName, UnixTime};
-use rustls::server::danger::{ClientCertVerified, ClientCertVerifier};
-use rustls::{
-    ClientConfig, DigitallySignedStruct, DistinguishedName, Error, ServerConfig, SignatureScheme,
-};
+use rustls::{ClientConfig, DigitallySignedStruct, Error, ServerConfig, SignatureScheme};
 use sha2::{Digest, Sha256};
-use tokio_rustls::TlsConnector;
 
 use crate::config::Config;
 
@@ -26,20 +23,16 @@ const CERT_FILE: &str = "cert.der";
 const KEY_FILE: &str = "key.der";
 /// TOFU store for server certs we've verified as a client (outgoing connections).
 const SERVER_PEERS_FILE: &str = "known_peers.json";
-/// TOFU store for client certs we've verified as a server (incoming connections).
-const CLIENT_PEERS_FILE: &str = "known_clients.json";
 
-/// Maps peer key (IP string) to its expected SHA-256 cert fingerprint.
+/// Maps peer key (cert fingerprint) to its expected SHA-256 cert fingerprint.
 type PeerMap = HashMap<String, String>;
 
 pub struct TlsStack {
     pub cert: CertificateDer<'static>,
-    /// Raw key bytes — kept so we can build a fresh ServerConfig per incoming connection.
+    /// Raw key bytes — kept to build ServerConfig on demand.
     key_bytes: Vec<u8>,
-    /// Shared TOFU store for client certs (incoming connections, keyed by peer IP).
-    client_tofu: Arc<TofuStore>,
-    /// Outgoing connector — presents our cert + verifies server cert via TOFU.
-    pub connector: TlsConnector,
+    /// Client config for outgoing HTTPS connections — uses TOFU to verify server certs.
+    client_config: Arc<ClientConfig>,
 }
 
 impl TlsStack {
@@ -61,40 +54,36 @@ impl TlsStack {
             (cert, key)
         };
 
-        let cert = CertificateDer::from(cert_der.clone());
-        let key_bytes = key_der.clone();
+        let cert = CertificateDer::from(cert_der);
+        let key_bytes = key_der;
 
         // ── Client config (outgoing) ─────────────────────────────────────────
-        // Present our cert so the receiver can verify us, and verify the
-        // receiver's cert via TOFU.
+        // LocalSend uses one-way TLS: the receiver presents a cert; the sender
+        // TOFU-verifies it. No client cert is presented (unlike the old protocol).
         let server_tofu = Arc::new(TofuVerifier::load(data_dir.join(SERVER_PEERS_FILE))?);
-        let key_for_client = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(key_der));
-        let client_config = ClientConfig::builder()
-            .dangerous()
-            .with_custom_certificate_verifier(server_tofu)
-            .with_client_auth_cert(vec![cert.clone()], key_for_client)?;
+        let client_config = Arc::new(
+            ClientConfig::builder()
+                .dangerous()
+                .with_custom_certificate_verifier(server_tofu)
+                .with_no_client_auth(),
+        );
 
-        // ── Shared TOFU store for incoming client certs ──────────────────────
-        let client_tofu = Arc::new(TofuStore::load(data_dir.join(CLIENT_PEERS_FILE))?);
-
-        Ok(Self {
-            cert,
-            key_bytes,
-            client_tofu,
-            connector: TlsConnector::from(Arc::new(client_config)),
-        })
+        Ok(Self { cert, key_bytes, client_config })
     }
 
-    /// Build a TLS acceptor that requires and TOFU-verifies the connecting client's cert.
-    pub fn make_acceptor_for_peer(&self) -> Result<tokio_rustls::TlsAcceptor> {
-        let verifier = Arc::new(TofuClientVerifier {
-            store: Arc::clone(&self.client_tofu),
-        });
+    /// Build a one-way TLS ServerConfig (receiver presents cert; no client cert required).
+    pub fn make_server_config(&self) -> Result<ServerConfig> {
         let key = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(self.key_bytes.clone()));
-        let server_config = ServerConfig::builder()
-            .with_client_cert_verifier(verifier)
+        let config = ServerConfig::builder()
+            .with_no_client_auth()
             .with_single_cert(vec![self.cert.clone()], key)?;
-        Ok(tokio_rustls::TlsAcceptor::from(Arc::new(server_config)))
+        Ok(config)
+    }
+
+    /// The client config suitable for passing to reqwest's `use_preconfigured_tls`.
+    /// Cloning is cheap — all internals use Arc.
+    pub fn client_config(&self) -> ClientConfig {
+        (*self.client_config).clone()
     }
 
     /// Full SHA-256 fingerprint of a DER certificate (64 hex chars).
@@ -145,18 +134,19 @@ impl TofuStore {
                 tracing::info!("TOFU: trusting new peer '{key}' (fp: {fingerprint})");
                 known.insert(key.to_string(), fingerprint.to_string());
                 drop(known);
-                self.persist();
+                if let Err(e) = self.persist() {
+                    tracing::warn!("TOFU: failed to persist known_peers: {e}");
+                }
                 Ok(())
             }
         }
     }
 
-    fn persist(&self) {
-        if let Ok(map) = self.known.read() {
-            if let Ok(json) = serde_json::to_vec_pretty(&*map) {
-                let _ = std::fs::write(&self.file, json);
-            }
-        }
+    fn persist(&self) -> Result<()> {
+        let map = self.known.read().unwrap();
+        let json = serde_json::to_vec_pretty(&*map)?;
+        std::fs::write(&self.file, json)?;
+        Ok(())
     }
 }
 
@@ -187,70 +177,6 @@ impl ServerCertVerifier for TofuVerifier {
         let fp = TlsStack::fingerprint(end_entity);
         self.store.verify(&fp, &fp)?;
         Ok(ServerCertVerified::assertion())
-    }
-
-    fn verify_tls12_signature(
-        &self,
-        message: &[u8],
-        cert: &CertificateDer<'_>,
-        dss: &DigitallySignedStruct,
-    ) -> Result<HandshakeSignatureValid, Error> {
-        rustls::crypto::verify_tls12_signature(
-            message,
-            cert,
-            dss,
-            &rustls::crypto::ring::default_provider().signature_verification_algorithms,
-        )
-    }
-
-    fn verify_tls13_signature(
-        &self,
-        message: &[u8],
-        cert: &CertificateDer<'_>,
-        dss: &DigitallySignedStruct,
-    ) -> Result<HandshakeSignatureValid, Error> {
-        rustls::crypto::verify_tls13_signature(
-            message,
-            cert,
-            dss,
-            &rustls::crypto::ring::default_provider().signature_verification_algorithms,
-        )
-    }
-
-    fn supported_verify_schemes(&self) -> Vec<SignatureScheme> {
-        rustls::crypto::ring::default_provider()
-            .signature_verification_algorithms
-            .supported_schemes()
-    }
-}
-
-// ── Client cert verifier (used by the receiving side) ─────────────────────────
-
-/// Verifies the sender's client cert on an incoming connection. TOFU keyed by cert fingerprint.
-#[derive(Debug)]
-struct TofuClientVerifier {
-    store: Arc<TofuStore>,
-}
-
-impl ClientCertVerifier for TofuClientVerifier {
-    fn client_auth_mandatory(&self) -> bool {
-        true // Reject any connection that does not present a certificate.
-    }
-
-    fn root_hint_subjects(&self) -> &[DistinguishedName] {
-        &[] // We accept any self-signed cert; TOFU handles trust.
-    }
-
-    fn verify_client_cert(
-        &self,
-        end_entity: &CertificateDer<'_>,
-        _intermediates: &[CertificateDer<'_>],
-        _now: UnixTime,
-    ) -> Result<ClientCertVerified, Error> {
-        // Key by fingerprint rather than IP so TOFU survives DHCP reassignment.
-        let fp = TlsStack::fingerprint(end_entity);
-        self.store.verify(&fp, &fp)?;
-        Ok(ClientCertVerified::assertion())
     }
 
     fn verify_tls12_signature(

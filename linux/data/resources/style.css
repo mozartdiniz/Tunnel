@@ -1,0 +1,15 @@
+/* Spinning search icon animation */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+.spinning-icon {
+  animation: spin 3s linear infinite;
+  transform-origin: center center;
+}
+
+/* Status dot — Adwaita named colours (roadmap 3.1: no hardcoded hex) */
+.status-dot-idle     { color: @success_color; }
+.status-dot-transfer { color: @accent_color; }
+.status-dot-error    { color: @error_color; }

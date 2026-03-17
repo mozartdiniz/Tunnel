@@ -1,0 +1,12 @@
+[Desktop Entry]
+Name=Tunnel
+Comment=Simple and secure local file transfer
+Exec=tunnel %u
+Icon=dev.tunnel.Tunnel
+Type=Application
+Categories=Network;FileTransfer;
+DBusActivatable=true
+StartupNotify=true
+StartupWMClass=tunnel
+X-SingleMainWindow=true
+MimeType=x-scheme-handler/localsend;

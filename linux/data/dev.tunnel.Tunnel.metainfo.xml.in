@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>dev.tunnel.Tunnel</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+
+  <name>Tunnel</name>
+  <summary>Simple and secure local file transfer</summary>
+
+  <description>
+    <p>
+      Tunnel lets you send files directly between devices on your local network
+      without any cloud service, account, or internet connection required.
+    </p>
+    <p>Features:</p>
+    <ul>
+      <li>Zero-configuration — devices are discovered automatically</li>
+      <li>Compatible with the LocalSend protocol (Android, iOS, Windows, macOS)</li>
+      <li>End-to-end encrypted with HTTPS and TOFU certificate verification</li>
+      <li>Drag-and-drop to send files</li>
+    </ul>
+  </description>
+
+  <launchable type="desktop-id">dev.tunnel.Tunnel.desktop</launchable>
+
+  <url type="homepage">https://github.com/mozartdiniz/Tunnel</url>
+  <url type="bugtracker">https://github.com/mozartdiniz/Tunnel/issues</url>
+  <url type="vcs-browser">https://github.com/mozartdiniz/Tunnel</url>
+
+  <branding>
+    <color type="primary" scheme_preference="light">#3584e4</color>
+    <color type="primary" scheme_preference="dark">#1c4a8a</color>
+  </branding>
+
+  <content_rating type="oars-1.1" />
+
+  <releases>
+    <release version="0.1.0" date="2026-03-17">
+      <description>
+        <p>Initial release with LocalSend protocol support.</p>
+      </description>
+    </release>
+  </releases>
+
+  <requires>
+    <display_length compare="ge">360</display_length>
+  </requires>
+
+  <recommends>
+    <control>pointing</control>
+    <control>keyboard</control>
+    <control>touch</control>
+  </recommends>
+
+  <screenshots>
+    <screenshot type="default">
+      <caption>Tunnel main window showing nearby devices</caption>
+    </screenshot>
+  </screenshots>
+</component>

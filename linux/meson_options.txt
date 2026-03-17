@@ -1,0 +1,7 @@
+option(
+  'profile',
+  type: 'combo',
+  choices: ['default', 'development'],
+  value: 'default',
+  description: 'Application profile. "development" appends .Devel to the app ID and enables debug features.',
+)

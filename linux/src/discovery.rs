@@ -1,84 +1,157 @@
-/// mDNS service discovery.
+/// LocalSend peer discovery via UDP multicast.
 ///
-/// Each Tunnel instance:
-///   - Advertises itself as `_tunnel-p2p._tcp.local.`
-///   - Browses for other instances on the same LAN.
-///
-/// The `display_name` property carries the human-readable device name.
-use anyhow::Result;
-use mdns_sd::{ServiceDaemon, ServiceEvent, ServiceInfo};
+/// Each device:
+///   - Announces itself by sending a DeviceInfo JSON payload to 224.0.0.167:53317.
+///   - Listens on the same multicast group for announcements from other devices.
+///   - Responds to incoming announcements with its own DeviceInfo so the sender
+///     immediately learns about this device.
 use std::collections::HashMap;
-use std::net::{IpAddr, Ipv4Addr, UdpSocket};
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::sync::Arc;
+use std::time::{Duration, Instant};
 
-const SERVICE_TYPE: &str = "_tunnel-p2p._tcp.local.";
+use anyhow::Result;
+use socket2::{Domain, Protocol, Socket, Type};
+use tokio::net::UdpSocket;
+use tokio::sync::mpsc;
+
+use crate::localsend::{DeviceInfo, LOCALSEND_PORT, MULTICAST_ADDR};
+
+/// Events yielded by the browse task.
+pub enum DiscoveryEvent {
+    PeerFound { fingerprint: String, alias: String, addr: IpAddr, port: u16 },
+    PeerLost { fingerprint: String },
+}
 
 pub struct Discovery {
-    daemon: ServiceDaemon,
+    fingerprint: String,
 }
 
 impl Discovery {
-    pub fn new() -> Result<Self> {
-        let daemon = ServiceDaemon::new()?;
-        Ok(Self { daemon })
+    pub fn new(fingerprint: String) -> Self {
+        Self { fingerprint }
     }
 
-    /// Announce this device on the LAN.
-    /// Returns the mDNS fullname so the caller can filter out self-discovery.
-    pub fn advertise(&self, display_name: &str, port: u16) -> Result<String> {
-        let instance_name = sanitize_instance_name(display_name);
-        let hostname = format!("{instance_name}.local.");
-        let fullname = format!("{instance_name}.{SERVICE_TYPE}");
+    /// Send a UDP multicast announcement so other devices can discover us.
+    /// Returns our own fingerprint (used by app.rs for self-filtering).
+    pub async fn advertise(&self, alias: &str, port: u16) -> Result<String> {
+        let info = self.build_info(alias, port, Some(true));
+        let payload = serde_json::to_vec(&info)?;
 
-        let mut properties = HashMap::new();
-        properties.insert("display_name".to_string(), display_name.to_string());
+        let socket = UdpSocket::bind("0.0.0.0:0").await?;
+        socket.send_to(&payload, format!("{MULTICAST_ADDR}:{LOCALSEND_PORT}")).await?;
 
-        let local_ip = outbound_ipv4()
-            .ok_or_else(|| anyhow::anyhow!("Could not determine local IPv4 address"))?;
-
-        let service = ServiceInfo::new(
-            SERVICE_TYPE,
-            &instance_name,
-            &hostname,
-            IpAddr::V4(local_ip),
-            port,
-            properties,
-        )?;
-
-        self.daemon.register(service)?;
-        tracing::info!("mDNS: advertising '{display_name}' on {local_ip}:{port}");
-        Ok(fullname)
+        tracing::info!("LocalSend: announced '{alias}' on port {port}");
+        Ok(self.fingerprint.clone())
     }
 
-    /// Remove our mDNS announcement (used before re-advertising with a new name).
-    pub fn unregister(&self, fullname: &str) -> Result<()> {
-        self.daemon.unregister(fullname)?;
+    /// Send a UDP multicast goodbye packet (announce=false).
+    pub async fn unregister(&self, alias: &str, port: u16) -> Result<()> {
+        let info = self.build_info(alias, port, Some(false));
+        let payload = serde_json::to_vec(&info)?;
+
+        let socket = UdpSocket::bind("0.0.0.0:0").await?;
+        socket.send_to(&payload, format!("{MULTICAST_ADDR}:{LOCALSEND_PORT}")).await?;
         Ok(())
     }
 
-    /// Returns a channel that yields `ServiceEvent`s as peers come and go.
-    pub fn browse(&self) -> Result<mdns_sd::Receiver<ServiceEvent>> {
-        let receiver = self.daemon.browse(SERVICE_TYPE)?;
-        tracing::info!("mDNS: browsing for {SERVICE_TYPE}");
-        Ok(receiver)
-    }
-}
+    /// Bind to the multicast port and start a background task that yields
+    /// `DiscoveryEvent`s as peers come and go.
+    pub async fn browse(&self, alias: String, port: u16) -> Result<mpsc::Receiver<DiscoveryEvent>> {
+        let (tx, rx) = mpsc::channel(32);
+        let own_fingerprint = self.fingerprint.clone();
+        let multicast_ip: Ipv4Addr = MULTICAST_ADDR.parse().unwrap();
+        let own_info = self.build_info(&alias, port, Some(false));
 
-/// Detect the local outbound IPv4 by routing a UDP socket toward a public IP.
-/// No packet is actually sent — the OS just picks the right interface.
-fn outbound_ipv4() -> Option<Ipv4Addr> {
-    let socket = UdpSocket::bind("0.0.0.0:0").ok()?;
-    socket.connect("8.8.8.8:80").ok()?;
-    match socket.local_addr().ok()?.ip() {
-        IpAddr::V4(ip) => Some(ip),
-        _ => None,
-    }
-}
+        // Bind to 0.0.0.0:53317 with SO_REUSEPORT so multiple processes can coexist.
+        let std_socket = Socket::new(Domain::IPV4, Type::DGRAM, Some(Protocol::UDP))?;
+        std_socket.set_reuse_address(true)?;
+        std_socket.bind(&SocketAddr::from(([0u8, 0, 0, 0], LOCALSEND_PORT)).into())?;
+        std_socket.join_multicast_v4(&multicast_ip, &Ipv4Addr::UNSPECIFIED)?;
+        std_socket.set_nonblocking(true)?;
+        let socket = Arc::new(UdpSocket::from_std(std_socket.into())?);
 
-/// Strip characters that are invalid in mDNS instance names.
-fn sanitize_instance_name(name: &str) -> String {
-    name.chars()
-        .map(|c| if c.is_alphanumeric() || c == '-' { c } else { '-' })
-        .collect::<String>()
-        .trim_matches('-')
-        .to_lowercase()
+        tokio::spawn(async move {
+            let mut peer_last_seen: HashMap<String, Instant> = HashMap::new();
+            let mut buf = vec![0u8; 4096];
+            // Re-check for expired peers every 10 seconds.
+            let mut expiry_tick = tokio::time::interval(Duration::from_secs(10));
+
+            loop {
+                tokio::select! {
+                    result = socket.recv_from(&mut buf) => {
+                        let Ok((n, src)) = result else { break };
+                        let Ok(info) = serde_json::from_slice::<DeviceInfo>(&buf[..n]) else {
+                            continue;
+                        };
+
+                        // Filter self
+                        if info.fingerprint == own_fingerprint {
+                            continue;
+                        }
+
+                        let fp = info.fingerprint.clone();
+                        let is_goodbye = info.announce == Some(false);
+
+                        if is_goodbye {
+                            if peer_last_seen.remove(&fp).is_some() {
+                                let _ = tx.send(DiscoveryEvent::PeerLost { fingerprint: fp }).await;
+                            }
+                            continue;
+                        }
+
+                        let was_known = peer_last_seen.contains_key(&fp);
+                        peer_last_seen.insert(fp.clone(), Instant::now());
+
+                        if !was_known {
+                            tracing::info!("LocalSend: peer found: {} @ {}:{}", info.alias, src.ip(), info.port);
+                            let _ = tx.send(DiscoveryEvent::PeerFound {
+                                fingerprint: fp,
+                                alias: info.alias,
+                                addr: src.ip(),
+                                port: info.port,
+                            }).await;
+
+                            // Respond with our own info so the peer immediately discovers us.
+                            let resp_payload = serde_json::to_vec(&own_info).unwrap_or_default();
+                            let dest = format!("{MULTICAST_ADDR}:{LOCALSEND_PORT}");
+                            let sock = socket.clone();
+                            tokio::spawn(async move {
+                                let _ = sock.send_to(&resp_payload, dest).await;
+                            });
+                        }
+                    }
+
+                    _ = expiry_tick.tick() => {
+                        let expired: Vec<String> = peer_last_seen
+                            .iter()
+                            .filter(|(_, t)| t.elapsed() > Duration::from_secs(30))
+                            .map(|(k, _)| k.clone())
+                            .collect();
+                        for fp in expired {
+                            peer_last_seen.remove(&fp);
+                            tracing::info!("LocalSend: peer timed out: {fp}");
+                            let _ = tx.send(DiscoveryEvent::PeerLost { fingerprint: fp }).await;
+                        }
+                    }
+                }
+            }
+        });
+
+        Ok(rx)
+    }
+
+    fn build_info(&self, alias: &str, port: u16, announce: Option<bool>) -> DeviceInfo {
+        DeviceInfo {
+            alias: alias.to_string(),
+            version: "2.0".to_string(),
+            device_model: Some("PC".to_string()),
+            device_type: Some("desktop".to_string()),
+            fingerprint: self.fingerprint.clone(),
+            port,
+            protocol: "https".to_string(),
+            download: false,
+            announce,
+        }
+    }
 }

@@ -11,8 +11,21 @@ path = "src/main.rs"
 # Async runtime
 tokio = { version = "1", features = ["full"] }
 
-# mDNS / Zeroconf service discovery
-mdns-sd = "0.11"
+# HTTP server (LocalSend receive side) + HTTPS client (send side)
+axum = { version = "0.8", features = ["multipart"] }
+axum-server = { version = "0.7", features = ["tls-rustls"] }
+reqwest = { version = "0.12", features = ["multipart", "rustls-tls", "json", "stream"], default-features = false }
+tower = "0.5"
+
+# No longer needed — replaced by LocalSend UDP multicast
+# mdns-sd = "0.11"
+
+# Streaming utilities
+tokio-util = { version = "0.7", features = ["io"] }
+futures = "0.3"
+
+# UDP socket options (SO_REUSEPORT for multicast)
+socket2 = "0.5"
 
 # TLS — self-signed certs + TOFU (Trust On First Use)
 rcgen = "0.11"
@@ -32,8 +45,19 @@ serde_json = "1"
 sha2 = "0.10"
 hex = "0.4"
 
-# Disk space check (statvfs)
-nix = { version = "0.29", features = ["fs"] }
+# Cross-platform disk space check (replaces nix::statvfs — roadmap 9.1)
+fs2 = "0.4"
+
+# Cross-platform hostname (replaces /etc/hostname — roadmap 9.1)
+gethostname = "0.4"
+
+# Sleep inhibition via systemd-logind (roadmap 3.4)
+zbus = { version = "4", default-features = false, features = ["tokio"] }
+
+# Multi-file/folder transfer: directory compression (roadmap 3.7)
+zip = "2"
+tempfile = "3"
+walkdir = "2"
 
 # Utilities
 uuid = { version = "1", features = ["v4"] }
@@ -45,3 +69,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 # Bridge between tokio tasks and GTK event loop
 async-channel = "2"
+
+[build-dependencies]
+# Compile GResource XML into a binary blob embedded in the app (roadmap 2.6)
+glib-build-tools = "0.20"

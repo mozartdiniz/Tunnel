@@ -1,0 +1,36 @@
+app-id: dev.tunnel.Tunnel
+
+runtime: org.gnome.Platform
+runtime-version: '48'
+sdk: org.gnome.Sdk
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.rust-stable
+
+build-options:
+  append-path: /usr/lib/sdk/rust-stable/bin
+  env:
+    CARGO_HOME: /run/build/tunnel/cargo
+
+command: tunnel
+
+finish-args:
+  - --share=network
+  - --filesystem=xdg-download
+  - --talk-name=org.freedesktop.portal.FileChooser
+  - --talk-name=org.freedesktop.portal.Inhibit
+  - --talk-name=org.freedesktop.Notifications
+
+modules:
+  - name: tunnel
+    buildsystem: meson
+    config-opts:
+      - -Dprofile=default
+    sources:
+      - type: dir
+        path: ..
+      - type: file
+        path: cargo-sources.json
+        dest: .
+    build-options:
+      env:
+        CARGO_HOME: /run/build/tunnel/cargo

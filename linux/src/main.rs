@@ -1,7 +1,8 @@
 mod app;
 mod config;
 mod discovery;
-mod protocol;
+mod inhibit;
+mod localsend;
 mod tls;
 mod transfer;
 mod ui;
@@ -10,6 +11,10 @@ use anyhow::Result;
 use gtk4::prelude::*;
 
 fn main() -> Result<()> {
+    // Embed and register the compiled GResource bundle (icons, CSS).
+    gtk4::gio::resources_register_include!("tunnel.gresource")
+        .expect("Failed to register GResources");
+
     // Install ring as the rustls crypto provider
     rustls::crypto::ring::default_provider()
         .install_default()

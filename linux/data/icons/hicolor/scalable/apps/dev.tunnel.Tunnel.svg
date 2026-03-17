@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <!-- Rounded rectangle background -->
+  <rect width="512" height="512" rx="114" fill="#3584e4"/>
+  <!-- Transfer arrow symbol: right-pointing bold arrow -->
+  <path fill="#ffffff"
+        d="M160 228h132l-44-44 40-40 116 112-116 112-40-40 44-44H160z"/>
+</svg>

@@ -1,0 +1,3 @@
+[D-BUS Service]
+Name=dev.tunnel.Tunnel
+Exec=@bindir@/tunnel --gapplication-service
