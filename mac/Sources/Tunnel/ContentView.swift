@@ -208,7 +208,6 @@ struct IncomingRequestSheet: View {
                 Button("Accept") {
                     model.acceptTransfer(request.transferId)
                 }
-                .keyboardShortcut(.return)
                 .buttonStyle(.borderedProminent)
             }
         }

@@ -5,7 +5,8 @@
       "Bash(cargo check:*)",
       "Bash(~/.cargo/bin/cargo check:*)",
       "Read(//usr/local/bin/**)",
-      "Read(//Users/mozart/Library/Developer/**)"
+      "Read(//Users/mozart/Library/Developer/**)",
+      "Bash(python3:*)"
     ]
   }
 }
