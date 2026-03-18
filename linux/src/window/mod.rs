@@ -55,7 +55,7 @@ impl Window {
 
         // Spawn async event-loop on the GTK main context.
         let win_weak = self.downgrade();
-        glib::MainContext::default().spawn_local(async move {
+        glib::spawn_future_local(async move {
             while let Ok(event) = event_rx.recv().await {
                 if let Some(win) = win_weak.upgrade() {
                     win.dispatch_event(event);
@@ -76,6 +76,7 @@ impl Window {
             &imp.peers,
             imp.cmd_tx.get().expect("cmd_tx not initialised"),
             self.upcast_ref::<libadwaita::ApplicationWindow>(),
+            &imp.toast_overlay,
         );
     }
 }

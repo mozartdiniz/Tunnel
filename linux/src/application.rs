@@ -103,9 +103,9 @@ mod imp {
             "accept-transfer",
             Some(&String::static_variant_type()),
         );
-        accept.connect_activate(glib::clone!(@strong cmd_tx => move |_, param| {
+        accept.connect_activate(glib::clone!(#[strong] cmd_tx, move |_, param| {
             if let Some(id) = param.and_then(|v| v.get::<String>()) {
-                let _ = cmd_tx.send_blocking(AppCommand::AcceptTransfer { transfer_id: id });
+                let _ = cmd_tx.try_send(AppCommand::AcceptTransfer { transfer_id: id });
             }
         }));
         app.add_action(&accept);
@@ -115,9 +115,9 @@ mod imp {
             "deny-transfer",
             Some(&String::static_variant_type()),
         );
-        deny.connect_activate(glib::clone!(@strong cmd_tx => move |_, param| {
+        deny.connect_activate(glib::clone!(#[strong] cmd_tx, move |_, param| {
             if let Some(id) = param.and_then(|v| v.get::<String>()) {
-                let _ = cmd_tx.send_blocking(AppCommand::DenyTransfer { transfer_id: id });
+                let _ = cmd_tx.try_send(AppCommand::DenyTransfer { transfer_id: id });
             }
         }));
         app.add_action(&deny);

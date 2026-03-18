@@ -40,14 +40,14 @@ pub fn show_transfer_request(
     dialog.connect_response(Some("accept"), {
         let tid = transfer_id.clone();
         move |_, _| {
-            let _ = cmd_tx_accept.send_blocking(AppCommand::AcceptTransfer {
+            let _ = cmd_tx_accept.try_send(AppCommand::AcceptTransfer {
                 transfer_id: tid.clone(),
             });
         }
     });
     dialog.connect_response(Some("deny"), {
         move |_, _| {
-            let _ = cmd_tx_deny.send_blocking(AppCommand::DenyTransfer {
+            let _ = cmd_tx_deny.try_send(AppCommand::DenyTransfer {
                 transfer_id: transfer_id.clone(),
             });
         }

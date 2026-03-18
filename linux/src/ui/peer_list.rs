@@ -41,7 +41,7 @@ pub fn add_peer_row(
             let paths: Vec<std::path::PathBuf> =
                 file_list.files().iter().filter_map(|f| f.path()).collect();
             if !paths.is_empty() {
-                let _ = cmd_tx.send_blocking(AppCommand::SendFiles {
+                let _ = cmd_tx.try_send(AppCommand::SendFiles {
                     peer_addr: addr,
                     peer_fingerprint: peer_fp.clone(),
                     paths,

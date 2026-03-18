@@ -10,6 +10,7 @@ use libadwaita::prelude::*;
 use crate::app::{AppCommand, AppEvent};
 
 use super::dialogs::show_transfer_request;
+use super::display_error::show_error;
 use super::helpers::{format_eta, human_bytes, set_status};
 use super::notifications::{send_complete_notification, send_incoming_notification};
 use super::peer_list::{add_peer_row, remove_peer_row, update_stack};
@@ -23,6 +24,7 @@ pub fn handle_event(
     peers: &RefCell<HashMap<String, (String, SocketAddr)>>,
     cmd_tx: &Sender<AppCommand>,
     window: &libadwaita::ApplicationWindow,
+    toast_overlay: &libadwaita::ToastOverlay,
 ) {
     match event {
         AppEvent::PeerFound { id, name, addr } => {
@@ -111,6 +113,7 @@ pub fn handle_event(
             progress_bar.set_fraction(0.0);
             set_status(status_dot, "error");
             tracing::warn!("Transfer failed: {message}");
+            show_error(toast_overlay, &format!("Transfer failed: {message}"));
         }
     }
 }

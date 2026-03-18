@@ -1,7 +1,7 @@
 /// GObject implementation of the main application window.
 ///
 /// All persistent widget state lives here in `RefCell` / `OnceCell` fields.
-/// Signal handlers are wired in `constructed()` using `glib::clone!(@weak)` to
+/// Signal handlers are wired in `constructed()` using `glib::clone!(#[weak])` to
 /// prevent reference cycles.
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -36,6 +36,8 @@ pub struct Window {
     pub refresh_btn: TemplateChild<gtk4::Button>,
     #[template_child]
     pub settings_btn: TemplateChild<gtk4::Button>,
+    #[template_child]
+    pub toast_overlay: TemplateChild<libadwaita::ToastOverlay>,
 
     // ── Runtime state (set once during setup, read-only thereafter) ───────────
     /// Command sender — wired up in `Window::setup()`, used by signal handlers.
@@ -78,7 +80,7 @@ impl ObjectImpl for Window {
             imp.peers.borrow_mut().clear();
             crate::ui::update_stack(&imp.list_box, &imp.stack);
             if let Some(tx) = imp.cmd_tx.get() {
-                let _ = tx.send_blocking(AppCommand::RefreshPeers);
+                let _ = tx.try_send(AppCommand::RefreshPeers);
             }
         }));
 

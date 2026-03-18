@@ -41,6 +41,8 @@
         </child>
         <!-- ── Main content ───────────────────────────────────────────── -->
         <property name="content">
+          <object class="AdwToastOverlay" id="toast_overlay">
+            <child>
           <object class="GtkBox">
             <property name="orientation">vertical</property>
             <property name="spacing">0</property>
@@ -126,6 +128,8 @@
                   <class name="status-dot-idle"/>
                 </style>
               </object>
+            </child>
+          </object>
             </child>
           </object>
         </property>

@@ -4,6 +4,7 @@
 /// The window subclass (`crate::window`) calls into these functions and owns
 /// all widget references.
 mod dialogs;
+pub mod display_error;
 mod event_handler;
 mod helpers;
 mod notifications;
@@ -12,6 +13,7 @@ mod preferences;
 
 // Re-export the public surface used by `window/mod.rs` and `window/imp.rs`.
 pub use dialogs::show_transfer_request;
+pub use display_error::{show_error, DisplayError};
 pub use event_handler::handle_event;
 pub use helpers::{format_eta, human_bytes, set_status};
 pub use notifications::{send_complete_notification, send_incoming_notification};

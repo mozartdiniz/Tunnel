@@ -57,7 +57,7 @@ pub fn show_preferences(
     prefs.add(&page);
 
     let config_pick = config.clone();
-    choose_btn.connect_clicked(glib::clone!(@weak folder_row, @weak prefs => move |_| {
+    choose_btn.connect_clicked(glib::clone!(#[weak] folder_row, #[weak] prefs, move |_| {
         let dialog = gtk4::FileDialog::builder()
             .title("Choose Download Folder")
             .modal(true)
@@ -88,10 +88,10 @@ pub fn show_preferences(
             if !new_name.is_empty() && new_name != cfg.device_name {
                 cfg.device_name = new_name.clone();
                 window_title.set_subtitle(&new_name);
-                let _ = cmd_tx.send_blocking(AppCommand::SetDeviceName(new_name));
+                let _ = cmd_tx.try_send(AppCommand::SetDeviceName(new_name));
             }
 
-            let _ = cmd_tx.send_blocking(AppCommand::SetDownloadDir(cfg.download_dir.clone()));
+            let _ = cmd_tx.try_send(AppCommand::SetDownloadDir(cfg.download_dir.clone()));
             let _ = cfg.save();
 
             glib::Propagation::Proceed
