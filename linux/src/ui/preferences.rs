@@ -78,7 +78,7 @@ pub fn show_preferences(
         );
     }));
 
-    prefs.connect_close_request(glib::clone!(@weak name_row => move |_| {
+    prefs.connect_close_request(glib::clone!(@weak name_row, @default-return glib::Propagation::Proceed => move |_| {
         let new_name = name_row.text().to_string();
         let mut cfg = config.borrow_mut();
 

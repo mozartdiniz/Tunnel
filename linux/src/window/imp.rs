@@ -70,7 +70,7 @@ impl ObjectImpl for Window {
         let obj = self.obj();
 
         // ── Refresh button ────────────────────────────────────────────────────
-        self.refresh_btn.connect_clicked(glib::clone!(@weak obj => move |_| {
+        self.refresh_btn.connect_clicked(glib::clone!(#[weak] obj, move |_| {
             let imp = obj.imp();
             while let Some(child) = imp.list_box.first_child() {
                 imp.list_box.remove(&child);
@@ -83,7 +83,7 @@ impl ObjectImpl for Window {
         }));
 
         // ── Settings button ───────────────────────────────────────────────────
-        self.settings_btn.connect_clicked(glib::clone!(@weak obj => move |_| {
+        self.settings_btn.connect_clicked(glib::clone!(#[weak] obj, move |_| {
             let imp = obj.imp();
             let Some(config) = imp.config.get() else { return };
             let Some(cmd_tx) = imp.cmd_tx.get() else { return };

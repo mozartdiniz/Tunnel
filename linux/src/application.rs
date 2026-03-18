@@ -83,7 +83,7 @@ mod imp {
             let config = self.config.borrow_mut().take()
                 .expect("activate called before startup");
 
-            let window = crate::window::Window::new(&*app);
+            let window = crate::window::Window::new(app.upcast_ref());
             window.setup(config, event_rx, cmd_tx);
             window.present();
         }
