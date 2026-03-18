@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <template class="WelcomeDialog" parent="AdwDialog">
+    <property name="content-width">500</property>
+    <property name="content-height">500</property>
+    <child>
+      <object class="AdwNavigationView" id="navigation_view">
+        <child>
+          <object class="AdwNavigationPage">
+            <property name="title" translatable="yes">Welcome</property>
+            <property name="child">
+              <object class="AdwToolbarView">
+                <child type="top">
+                  <object class="AdwHeaderBar">
+                    <property name="title-widget">
+                      <object class="GtkBox"/>
+                    </property>
+                  </object>
+                </child>
+                <property name="content">
+                  <object class="AdwStatusPage" id="status_page">
+                    <property name="vexpand">True</property>
+                    <property name="title" translatable="yes">Welcome to Warp</property>
+                    <property name="description" translatable="yes">Fast and secure file transfer</property>
+                    <property name="child">
+                      <object class="GtkButton" id="next_button">
+                        <signal name="clicked" handler="push_detail" swapped="true"/>
+                        <property name="halign">center</property>
+                        <property name="width-request">150</property>
+                        <!-- Translators: Button -->
+                        <property name="label" translatable="yes">Next</property>
+                        <style>
+                          <class name="suggested-action"/>
+                          <class name="pill"/>
+                        </style>
+                      </object>
+                    </property>
+                  </object>
+                </property>
+              </object>
+            </property>
+          </object>
+        </child>
+        <child>
+          <object class="AdwNavigationPage" id="page_detail">
+            <property name="title">Introduction</property>
+            <property name="child">
+              <object class="AdwToolbarView">
+                <child type="top">
+                  <object class="AdwHeaderBar">
+                    <property name="centering-policy">strict</property>
+                    <property name="title-widget">
+                      <object class="GtkBox"/>
+                    </property>
+                  </object>
+                </child>
+                <property name="content">
+                  <object class="GtkScrolledWindow">
+                    <property name="hscrollbar-policy">never</property>
+                    <property name="propagate-natural-height">True</property>
+                    <child>
+                      <object class="GtkViewport">
+                        <property name="scroll-to-focus">True</property>
+                        <child>
+                          <object class="AdwClamp">
+                            <child>
+                              <object class="GtkBox">
+                                <property name="valign">center</property>
+                                <property name="vexpand">True</property>
+                                <property name="margin-top">24</property>
+                                <property name="margin-bottom">24</property>
+                                <property name="margin-start">24</property>
+                                <property name="margin-end">24</property>
+                                <property name="spacing">24</property>
+                                <property name="orientation">vertical</property>
+                                <child>
+                                  <object class="GtkLabel">
+                                    <property name="justify">left</property>
+                                    <property name="label" translatable="yes">Introduction</property>
+                                    <style>
+                                      <class name="title-1"/>
+                                    </style>
+                                  </object>
+                                </child>
+                                <child>
+                                  <object class="GtkLabel">
+                                    <property name="wrap">True</property>
+                                    <property name="halign">center</property>
+                                    <property name="justify">left</property>
+                                    <property name="label" translatable="yes">Warp makes file transfer simple. To get started, both parties need to install Warp on their devices.
+
+After selecting a file to transmit, the sender needs to tell the receiver the displayed transmit code. This is preferably done via a secure communication channel.
+
+When the receiver has entered the code, the file transfer can begin.
+
+For more information about Warp, open the Help section from the Main Menu.</property>
+                                  </object>
+                                </child>
+                                <child>
+                                  <object class="GtkButton" id="get_started_button">
+                                    <signal name="clicked" handler="get_started_button_clicked" swapped="true"/>
+                                    <!-- Translators: Big button to finish welcome screen -->
+                                    <property name="label" translatable="yes">Get Started Using Warp</property>
+                                    <property name="halign">center</property>
+                                    <style>
+                                      <class name="pill"/>
+                                      <class name="suggested-action"/>
+                                    </style>
+                                  </object>
+                                </child>
+                              </object>
+                            </child>
+                          </object>
+                        </child>
+                      </object>
+                    </child>
+                  </object>
+                </property>
+              </object>
+            </property>
+          </object>
+        </child>
+      </object>
+    </child>
+  </template>
+</interface>

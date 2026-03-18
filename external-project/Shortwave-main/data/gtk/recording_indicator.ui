@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <template class="SwRecordingIndicator" parent="GtkButton">
+    <property name="child">
+      <object class="GtkBox">
+        <child>
+          <object class="GtkImage">
+            <property name="icon_name">media-record-symbolic</property>
+            <property name="pixel_size">10</property>
+            <property name="margin_start">8</property>
+            <property name="margin_end">4</property>
+            <property name="accessible_role">presentation</property>
+          </object>
+        </child>
+        <child>
+          <object class="GtkLabel" id="duration_label">
+            <property name="margin_end">8</property>
+            <attributes>
+              <attribute name="font-features" value="tnum"/>
+            </attributes>
+          </object>
+        </child>
+      </object>
+    </property>
+    <style>
+      <class name="circular" />
+      <class name="recording-indicator" />
+    </style>
+  </template>
+</interface>

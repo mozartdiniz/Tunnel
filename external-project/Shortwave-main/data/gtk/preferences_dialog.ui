@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <template class="SwSettingsDialog" parent="AdwPreferencesDialog">
+    <property name="content_height">650</property>
+    <property name="content_width">500</property>
+    <child>
+      <object class="AdwPreferencesPage">
+        <property name="icon_name">preferences-system-symbolic</property>
+        <property name="title" translatable="yes">General</property>
+        <child>
+          <object class="AdwPreferencesGroup">
+            <property name="title" translatable="yes">Playback</property>
+            <child>
+              <object class="AdwActionRow">
+                <property name="title" translatable="yes">_Background Playback</property>
+                <property name="subtitle" translatable="yes">Playback continues when window is closed</property>
+                <property name="use_underline">True</property>
+                <property name="activatable_widget">background_playback_switch</property>
+                <child>
+                  <object class="GtkSwitch" id="background_playback_switch">
+                    <property name="valign">center</property>
+                  </object>
+                </child>
+              </object>
+            </child>
+            <child>
+              <object class="AdwActionRow">
+                <property name="title" translatable="yes">_Notifications</property>
+                <property name="subtitle" translatable="yes">Show desktop notifications when a new track gets played</property>
+                <property name="use_underline">True</property>
+                <property name="activatable_widget">notifications_switch</property>
+                <child>
+                  <object class="GtkSwitch" id="notifications_switch">
+                    <property name="valign">center</property>
+                  </object>
+                </child>
+              </object>
+            </child>
+          </object>
+        </child>
+        <child>
+          <object class="AdwPreferencesGroup">
+            <property name="title" translatable="yes" comments="Translators: This is a noun / preferences group title">Recording</property>
+            <property name="description" translatable="yes">Tracks are automatically recognised based on the station stream metadata and can be saved.</property>
+            <child>
+              <object class="AdwActionRow" id="recording_track_directory_row">
+                <property name="title" translatable="yes">Track _Directory</property>
+                <property name="use_underline">True</property>
+                <property name="subtitle_selectable">True</property>
+                <property name="activatable">True</property>
+                <child>
+                  <object class="GtkImage">
+                    <property name="icon_name">folder-symbolic</property>
+                    <property name="margin_start">6</property>
+                    <property name="margin_end">6</property>
+                  </object>
+                </child>
+                <style>
+                  <class name="property" />
+                </style>
+              </object>
+            </child>
+          </object>
+        </child>
+        <child>
+          <object class="AdwPreferencesGroup">
+            <child>
+              <object class="AdwActionRow">
+                <property name="title" translatable="yes">Save _All Tracks</property>
+                <property name="subtitle" translatable="yes">All recorded tracks are automatically saved in the track directory</property>
+                <property name="use_underline">True</property>
+                <property name="activatable_widget">record_everything_checkbutton</property>
+                <child type="prefix">
+                  <object class="GtkCheckButton" id="record_everything_checkbutton">
+                    <property name="valign">center</property>
+                    <property name="action_name">player.recording-mode</property>
+                    <property name="action_target">'everything'</property>
+                  </object>
+                </child>
+              </object>
+            </child>
+            <child>
+              <object class="AdwActionRow">
+                <property name="title" translatable="yes">Decide for Each _Track</property>
+                <property name="subtitle" translatable="yes">Tracks are temporarily recorded and can be saved if desired</property>
+                <property name="use_underline">True</property>
+                <property name="activatable_widget">record_decide_checkbutton</property>
+                <child type="prefix">
+                  <object class="GtkCheckButton" id="record_decide_checkbutton">
+                    <property name="group">record_everything_checkbutton</property>
+                    <property name="valign">center</property>
+                    <property name="action_name">player.recording-mode</property>
+                    <property name="action_target">'decide'</property>
+                  </object>
+                </child>
+              </object>
+            </child>
+            <child>
+              <object class="AdwActionRow">
+                <property name="title" translatable="yes">Record N_othing</property>
+                <property name="subtitle" translatable="yes">Stations are played without recording</property>
+                <property name="use_underline">True</property>
+                <property name="activatable_widget">record_nothing_checkbutton</property>
+                <child type="prefix">
+                  <object class="GtkCheckButton" id="record_nothing_checkbutton">
+                    <property name="group">record_everything_checkbutton</property>
+                    <property name="valign">center</property>
+                    <property name="action_name">player.recording-mode</property>
+                    <property name="action_target">'nothing'</property>
+                  </object>
+                </child>
+              </object>
+            </child>
+          </object>
+        </child>
+        <child>
+          <object class="AdwPreferencesGroup">
+            <child>
+              <object class="AdwSpinRow" id="recording_minimum_duration_row">
+                <property name="title" translatable="yes">M_inimum Duration</property>
+                <property name="subtitle" translatable="yes">Tracks shorter than the minimum duration will be ignored</property>
+                <property name="use_underline">True</property>
+                <property name="width_chars">7</property>
+                <signal name="output" handler="on_minimum_duration_output" />
+                <property name="adjustment">
+                  <object class="GtkAdjustment">
+                    <property name="step_increment">1.0</property>
+                    <property name="upper">600.0</property>
+                    <property name="lower">5.0</property>
+                  </object>
+                </property>
+              </object>
+            </child>
+            <child>
+              <object class="AdwSpinRow" id="recording_maximum_duration_row">
+                <property name="title" translatable="yes">M_aximum Duration</property>
+                <property name="subtitle" translatable="yes">Recording ends when the maximum duration is reached</property>
+                <property name="use_underline">True</property>
+                <property name="width_chars">7</property>
+                <signal name="output" handler="on_maximum_duration_output" />
+                <property name="adjustment">
+                  <object class="GtkAdjustment">
+                    <property name="step_increment">60</property>
+                    <property name="upper">10800</property>
+                    <property name="lower">60</property>
+                  </object>
+                </property>
+              </object>
+            </child>
+          </object>
+        </child>
+      </object>
+    </child>
+  </template>
+</interface>

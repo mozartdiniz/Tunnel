@@ -12,7 +12,7 @@ mod imp {
     use gtk4::subclass::prelude::*;
     use libadwaita::subclass::prelude::*;
 
-    use crate::app::{AppCommand, AppEvent, run_network};
+    use crate::app::{AppAction, AppCommand, AppEvent, run_network};
     use crate::config::Config;
 
     #[derive(Default)]
@@ -100,7 +100,7 @@ mod imp {
     ) {
         // accept-transfer ──────────────────────────────────────────────────────
         let accept = gio::SimpleAction::new(
-            "accept-transfer",
+            AppAction::AcceptTransfer.as_ref(),
             Some(&String::static_variant_type()),
         );
         accept.connect_activate(glib::clone!(#[strong] cmd_tx, move |_, param| {
@@ -112,7 +112,7 @@ mod imp {
 
         // deny-transfer ────────────────────────────────────────────────────────
         let deny = gio::SimpleAction::new(
-            "deny-transfer",
+            AppAction::DenyTransfer.as_ref(),
             Some(&String::static_variant_type()),
         );
         deny.connect_activate(glib::clone!(#[strong] cmd_tx, move |_, param| {
@@ -124,7 +124,7 @@ mod imp {
 
         // reveal-file ──────────────────────────────────────────────────────────
         let reveal = gio::SimpleAction::new(
-            "reveal-file",
+            AppAction::RevealFile.as_ref(),
             Some(&String::static_variant_type()),
         );
         reveal.connect_activate(move |_, param| {

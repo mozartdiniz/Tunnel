@@ -1,0 +1,1019 @@
+# Chinese (China) translation for shortwave.
+# Copyright (C) 2020 shortwave's COPYRIGHT HOLDER
+# This file is distributed under the same license as the shortwave package.
+# Damned <damnedlies@163.com>, 2020.
+# Dingzhong Chen <wsxy162@gmail.com>, 2020.
+# Junping Sun <junping@nfschina.com>, 2021.
+# Liu Tao <lyuutau@outlook.com>, 2021.
+# lumingzh <lumingzh@qq.com>, 2022-2026.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: shortwave master\n"
+"Report-Msgid-Bugs-To: https://gitlab.gnome.org/World/Shortwave/issues\n"
+"POT-Creation-Date: 2026-01-06 17:25+0000\n"
+"PO-Revision-Date: 2026-01-13 08:03+0800\n"
+"Last-Translator: lumingzh <lumingzh@qq.com>\n"
+"Language-Team: Chinese (China) <i18n-zh@googlegroups.com>\n"
+"Language: zh_CN\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"X-Generator: Gtranslator 49.0\n"
+"X-DL-Team: zh_CN\n"
+"X-DL-Module: shortwave\n"
+"X-DL-Branch: master\n"
+"X-DL-Domain: po\n"
+"X-DL-State: None\n"
+
+#: data/de.haeckerfelix.Shortwave.desktop.in.in:2
+#: data/de.haeckerfelix.Shortwave.metainfo.xml.in.in:5
+msgid "@NAME@"
+msgstr "@NAME@"
+
+#: data/de.haeckerfelix.Shortwave.desktop.in.in:3
+msgid "Internet Radio Player"
+msgstr "互联网广播播放器"
+
+#. General
+#: data/de.haeckerfelix.Shortwave.desktop.in.in:4
+#: data/de.haeckerfelix.Shortwave.metainfo.xml.in.in:10
+msgid "Listen to internet radio"
+msgstr "收听互联网广播"
+
+#. Translators: Search terms to find this application. Do NOT translate or localize the semicolons! The list MUST also end with a semicolon!
+#: data/de.haeckerfelix.Shortwave.desktop.in.in:13
+msgid "Gradio;Radio;Stream;Wave;"
+msgstr "Gradio;Radio;Stream;Wave;收音机;流;波;广播;媒体;"
+
+#: data/de.haeckerfelix.Shortwave.metainfo.xml.in.in:12
+msgid ""
+"Shortwave is an internet radio player that provides access to a station "
+"database with over 50,000 stations."
+msgstr ""
+"短波是个提供对具有超过 50000 个电台的电台数据库访问的互联网广播播放器。"
+
+#: data/de.haeckerfelix.Shortwave.metainfo.xml.in.in:15
+msgid "Features:"
+msgstr "特性："
+
+#: data/de.haeckerfelix.Shortwave.metainfo.xml.in.in:17
+#: data/de.haeckerfelix.Shortwave.metainfo.xml.in.in:64
+msgid "Create your own library where you can add your favorite stations"
+msgstr "创建您自己的媒体库，可以在其中添加最喜欢的电台"
+
+#: data/de.haeckerfelix.Shortwave.metainfo.xml.in.in:18
+#: data/de.haeckerfelix.Shortwave.metainfo.xml.in.in:68
+msgid "Easily search and discover new radio stations"
+msgstr "轻松搜索并发现新电台"
+
+#: data/de.haeckerfelix.Shortwave.metainfo.xml.in.in:19
+msgid ""
+"Automatic recognition of tracks, with the possibility to save them "
+"individually"
+msgstr "自动识别音轨，并可以将其分别保存"
+
+#: data/de.haeckerfelix.Shortwave.metainfo.xml.in.in:20
+#: data/de.haeckerfelix.Shortwave.metainfo.xml.in.in:72
+msgid "Responsive application layout, compatible for small and large screens"
+msgstr "响应式应用程序布局，兼容小型屏幕和大型屏幕"
+
+#: data/de.haeckerfelix.Shortwave.metainfo.xml.in.in:21
+msgid "Play audio on supported network devices (e.g. Google Chromecasts)"
+msgstr "在受支持的网络设备（例如 Google Chromecasts）上播放音频"
+
+#: data/de.haeckerfelix.Shortwave.metainfo.xml.in.in:22
+msgid "Seamless integration into the GNOME desktop environment"
+msgstr "与 GNOME 桌面环境无缝集成"
+
+#. Branding
+#: data/de.haeckerfelix.Shortwave.metainfo.xml.in.in:28
+msgid "Felix Häcker"
+msgstr "Felix Häcker"
+
+#: data/gtk/add_station_dialog.ui:14
+msgid "Add Local Station"
+msgstr "添加本地电台"
+
+#: data/gtk/add_station_dialog.ui:64
+msgid "Change Station Cover"
+msgstr "修改电台封面"
+
+#: data/gtk/add_station_dialog.ui:95
+msgid ""
+"This station will only be added to your library. If you want it to be "
+"available to everyone, you should add it to the <a href=\"https://www.radio-"
+"browser.info/add\">public database</a>."
+msgstr ""
+"该电台将仅添加至您的电台库。如果您想要将其开放给所有人，您应将其添加至<a "
+"href=\"https://www.radio-browser.info/add\">公共数据库</a>。"
+
+#: data/gtk/add_station_dialog.ui:107
+msgid "Name"
+msgstr "名称"
+
+#: data/gtk/add_station_dialog.ui:115
+msgid "Stream URL"
+msgstr "媒体流 URL"
+
+#: data/gtk/add_station_dialog.ui:123
+msgid "Add Station"
+msgstr "添加电台"
+
+#: data/gtk/device_dialog.ui:7 data/gtk/player_view.ui:134
+msgid "Connect Device"
+msgstr "连接设备"
+
+#: data/gtk/device_dialog.ui:18
+msgid "Searching for Devices…"
+msgstr "正在搜索设备…"
+
+#: data/gtk/device_dialog.ui:25
+msgid "Search for Devices"
+msgstr "搜索设备"
+
+#: data/gtk/device_dialog.ui:41
+msgid "No Devices Available"
+msgstr "无可用设备"
+
+#: data/gtk/device_dialog.ui:42
+msgid "No supported Google Cast device found"
+msgstr "未找到支持的 Google Cast 设备"
+
+#: data/gtk/device_indicator.ui:7
+msgid "Disconnect From Device"
+msgstr "断开设备连接"
+
+#: data/gtk/library_page.ui:4
+msgid "Shortwave"
+msgstr "短波"
+
+#: data/gtk/library_page.ui:15 data/gtk/search_page.ui:4
+msgid "Browse Stations"
+msgstr "浏览电台"
+
+#: data/gtk/library_page.ui:23
+msgid "Main Menu"
+msgstr "主菜单"
+
+#: data/gtk/library_page.ui:92
+msgid "_Add New Stations"
+msgstr "添加新电台(_A)"
+
+#: data/gtk/library_page.ui:115
+msgid "_Sorting"
+msgstr "排序(_S)"
+
+#: data/gtk/library_page.ui:118
+msgid "_Name"
+msgstr "名称(_N)"
+
+#: data/gtk/library_page.ui:123
+msgid "_Language"
+msgstr "语言(_L)"
+
+#: data/gtk/library_page.ui:128
+msgid "_Country"
+msgstr "国家(_C)"
+
+#: data/gtk/library_page.ui:133
+msgid "S_tate"
+msgstr "州省(_T)"
+
+#: data/gtk/library_page.ui:138
+msgid "_Bitrate"
+msgstr "位速率(_B)"
+
+#: data/gtk/library_page.ui:145
+msgid "_Ascending"
+msgstr "升序(_A)"
+
+#: data/gtk/library_page.ui:150
+msgid "_Descending"
+msgstr "降序(_D)"
+
+#: data/gtk/library_page.ui:159
+msgid "_Open radio-browser.info <sup>↗</sup>"
+msgstr "打开 radio-browser.info(_O) <sup>↗</sup>"
+
+#: data/gtk/library_page.ui:166
+msgid "_Preferences"
+msgstr "首选项(_P)"
+
+#: data/gtk/library_page.ui:170
+msgid "_Keyboard Shortcuts"
+msgstr "键盘快捷键(_K)"
+
+#: data/gtk/library_page.ui:174
+msgid "_About Shortwave"
+msgstr "关于短波(_A)"
+
+#: data/gtk/library_page.ui:178
+msgid "_Quit"
+msgstr "退出(_Q)"
+
+#: data/gtk/library_page.ui:186
+msgid "Add _Local Station"
+msgstr "添加本地电台(_L)"
+
+#: data/gtk/player_gadget.ui:40 data/gtk/player_toolbar.ui:92
+#: data/gtk/player_view.ui:158 data/gtk/station_row.ui:86
+msgid "Play"
+msgstr "播放"
+
+#: data/gtk/player_gadget.ui:55 data/gtk/player_toolbar.ui:106
+#: data/gtk/player_view.ui:172
+msgid "Stop"
+msgstr "停止"
+
+#: data/gtk/player_gadget.ui:71 data/gtk/player_toolbar.ui:121
+#: data/gtk/player_view.ui:187
+msgid "Buffering…"
+msgstr "正在缓冲…"
+
+#: data/gtk/player_gadget.ui:118
+msgid "SHORTWAVE INTERNET RADIO"
+msgstr "短波互联网电台"
+
+#: data/gtk/player_gadget.ui:140 data/gtk/player_toolbar.ui:29
+#: data/gtk/player_view.ui:58 src/app.rs:254
+msgid "No Playback"
+msgstr "无回放"
+
+#: data/gtk/player_gadget.ui:199
+msgid "Close"
+msgstr "关闭"
+
+#: data/gtk/player_gadget.ui:210
+msgid "Restore Window"
+msgstr "恢复窗口"
+
+#: data/gtk/player_view.ui:13
+msgid "Enable Gadget Mode"
+msgstr "启用迷你模式"
+
+#: data/gtk/player_view.ui:217
+msgid "Show Station Details"
+msgstr "显示电台详情"
+
+#: data/gtk/player_view.ui:268
+msgid "No Tracks"
+msgstr "无音轨"
+
+#: data/gtk/player_view.ui:279
+msgid "Played tracks will appear here"
+msgstr "已播放的音轨会出现在此处"
+
+#: data/gtk/player_view.ui:313
+msgid "An error occurred"
+msgstr "发生了错误"
+
+#: data/gtk/preferences_dialog.ui:9 data/gtk/shortcuts_dialog.ui:6
+msgid "General"
+msgstr "常规"
+
+#: data/gtk/preferences_dialog.ui:12 data/gtk/shortcuts_dialog.ui:47
+msgid "Playback"
+msgstr "回放"
+
+#: data/gtk/preferences_dialog.ui:15
+msgid "_Background Playback"
+msgstr "后台播放(_B)"
+
+#: data/gtk/preferences_dialog.ui:16
+msgid "Playback continues when window is closed"
+msgstr "窗口关闭后继续播放"
+
+#: data/gtk/preferences_dialog.ui:28
+msgid "_Notifications"
+msgstr "通知(_N)"
+
+#: data/gtk/preferences_dialog.ui:29
+msgid "Show desktop notifications when a new track gets played"
+msgstr "当播放新音轨时显示桌面通知"
+
+#. Translators: This is a noun / preferences group title
+#: data/gtk/preferences_dialog.ui:43
+msgid "Recording"
+msgstr "录制"
+
+#: data/gtk/preferences_dialog.ui:44
+msgid ""
+"Tracks are automatically recognised based on the station stream metadata and "
+"can be saved."
+msgstr "基于电台媒体流元数据自动识别音轨并可将其保存。"
+
+#: data/gtk/preferences_dialog.ui:47
+msgid "Track _Directory"
+msgstr "音轨目录(_D)"
+
+#: data/gtk/preferences_dialog.ui:69
+msgid "Save _All Tracks"
+msgstr "保存所有音轨(_A)"
+
+#: data/gtk/preferences_dialog.ui:70
+msgid "All recorded tracks are automatically saved in the track directory"
+msgstr "所有录制音轨会自动保存在音轨目录"
+
+#: data/gtk/preferences_dialog.ui:84
+msgid "Decide for Each _Track"
+msgstr "决定每个音轨(_T)"
+
+#: data/gtk/preferences_dialog.ui:85
+msgid "Tracks are temporarily recorded and can be saved if desired"
+msgstr "音轨将临时录制并在用户想要时选择保存"
+
+#: data/gtk/preferences_dialog.ui:100
+msgid "Record N_othing"
+msgstr "不要录制(_O)"
+
+#: data/gtk/preferences_dialog.ui:101
+msgid "Stations are played without recording"
+msgstr "播放电台时不进行录制"
+
+#: data/gtk/preferences_dialog.ui:120
+msgid "M_inimum Duration"
+msgstr "最小时长(_I)"
+
+#: data/gtk/preferences_dialog.ui:121
+msgid "Tracks shorter than the minimum duration will be ignored"
+msgstr "短于最小时长的音轨将被忽略"
+
+#: data/gtk/preferences_dialog.ui:136
+msgid "M_aximum Duration"
+msgstr "最大时长(_A)"
+
+#: data/gtk/preferences_dialog.ui:137
+msgid "Recording ends when the maximum duration is reached"
+msgstr "达到最大时长时结束录制"
+
+#: data/gtk/search_filter.ui:21
+msgid "Search"
+msgstr "搜索"
+
+#: data/gtk/search_filter.ui:22
+msgid "Search stations"
+msgstr "搜索电台"
+
+#: data/gtk/search_filter.ui:32
+msgid "Search Filter"
+msgstr "搜索筛选器"
+
+#: data/gtk/search_filter.ui:33
+msgid "filter-symbolic"
+msgstr "filter-symbolic"
+
+#: data/gtk/search_filter.ui:34
+msgid "False"
+msgstr "False"
+
+#: data/gtk/search_page.ui:55
+msgid "Discover over 50,000 public stations"
+msgstr "探索 50000 多个公共电台"
+
+#: data/gtk/search_page.ui:73
+msgid "Popular Stations"
+msgstr "流行电台"
+
+#: data/gtk/search_page.ui:95
+msgid "Discover New Stations"
+msgstr "探索新电台"
+
+#: data/gtk/search_page.ui:118
+msgid ""
+"The displayed information is provided by <a href=\"https://www.radio-"
+"browser.info/\">radio-browser.info</a>.\n"
+"Shortwave has no influence on the listed stations."
+msgstr ""
+"显示的信息由 <a href=\"https://www.radio-browser.info/\">radio-browser.info</"
+"a> 提供。\n"
+"Shortwave 无法影响列出的电台。"
+
+#: data/gtk/search_page.ui:184
+msgid "Loading…"
+msgstr "正在加载…"
+
+#: data/gtk/search_page.ui:199
+msgid "No Results"
+msgstr "无结果"
+
+#: data/gtk/search_page.ui:200
+msgid ""
+"If the station you are looking for is missing, you can add it to the public "
+"database."
+msgstr "如果缺失了您寻找的电台，您可以将其添加至公共数据库。"
+
+#: data/gtk/search_page.ui:204
+msgid "Add Missing Station"
+msgstr "添加缺失电台"
+
+#: data/gtk/search_page.ui:222
+msgid "Unable to Retrieve Station Data"
+msgstr "无法获取电台数据"
+
+#: data/gtk/search_page.ui:225
+msgid "Try Again"
+msgstr "重试"
+
+#: data/gtk/shortcuts_dialog.ui:9
+msgctxt "shortcut window"
+msgid "Search stations"
+msgstr "搜索电台"
+
+#: data/gtk/shortcuts_dialog.ui:15
+msgctxt "shortcut window"
+msgid "Open shortcut window"
+msgstr "打开快捷键窗口"
+
+#: data/gtk/shortcuts_dialog.ui:22
+msgctxt "shortcut window"
+msgid "Open application menu"
+msgstr "打开应用菜单"
+
+#: data/gtk/shortcuts_dialog.ui:27
+msgctxt "shortcut window"
+msgid "Open preferences"
+msgstr "打开首选项"
+
+#: data/gtk/shortcuts_dialog.ui:33
+msgctxt "shortcut window"
+msgid "Close the window"
+msgstr "关闭窗口"
+
+#: data/gtk/shortcuts_dialog.ui:39
+msgctxt "shortcut window"
+msgid "Quit the application"
+msgstr "退出应用程序"
+
+#: data/gtk/shortcuts_dialog.ui:50
+msgctxt "shortcut window"
+msgid "Toggle playback"
+msgstr "开关回放"
+
+#: data/gtk/shortcuts_dialog.ui:58 data/gtk/volume_control.ui:21
+msgid "Volume"
+msgstr "音量"
+
+#: data/gtk/shortcuts_dialog.ui:61
+msgctxt "shortcut window"
+msgid "Toggle mute"
+msgstr "切换静音"
+
+#: data/gtk/shortcuts_dialog.ui:67
+msgctxt "shortcut window"
+msgid "Increase volume"
+msgstr "增大音量"
+
+#: data/gtk/shortcuts_dialog.ui:73
+msgctxt "shortcut window"
+msgid "Decrease volume"
+msgstr "减小音量"
+
+#: data/gtk/station_dialog.ui:71
+msgid "_Play"
+msgstr "播放(_P)"
+
+#: data/gtk/station_dialog.ui:82
+msgid "_Add to Library"
+msgstr "添加到库(_A)"
+
+#: data/gtk/station_dialog.ui:94
+msgid "_Remove From Library"
+msgstr "从库移除(_R)"
+
+#: data/gtk/station_dialog.ui:111 data/gtk/station_row.ui:57
+msgid "Local Station"
+msgstr "本地电台"
+
+#: data/gtk/station_dialog.ui:112
+msgid ""
+"This station exists only in your library, and is not part of the public "
+"database"
+msgstr "该电台仅存在于您的库中，且不是公共数据库的一部分"
+
+#: data/gtk/station_dialog.ui:126 data/gtk/station_row.ui:69
+msgid "Orphaned Station"
+msgstr "孤立电台"
+
+#: data/gtk/station_dialog.ui:127
+msgid ""
+"The information could not be updated, probably this station was removed from "
+"the public database"
+msgstr "信息无法更新，可能是因为该电台已从公共数据库移除"
+
+#: data/gtk/station_dialog.ui:138
+msgid "Information"
+msgstr "信息"
+
+#: data/gtk/station_dialog.ui:142
+msgid "Language"
+msgstr "语言"
+
+#: data/gtk/station_dialog.ui:153
+msgid "Tags"
+msgstr "标签"
+
+#: data/gtk/station_dialog.ui:166
+msgid "Location"
+msgstr "位置"
+
+#: data/gtk/station_dialog.ui:170
+msgid "Country"
+msgstr "国家"
+
+#: data/gtk/station_dialog.ui:181
+msgid "State"
+msgstr "州省"
+
+#: data/gtk/station_dialog.ui:216
+msgid "Audio"
+msgstr "音频"
+
+#: data/gtk/station_dialog.ui:219
+msgid "Bitrate"
+msgstr "位速率"
+
+#: data/gtk/station_dialog.ui:230
+msgid "Codec"
+msgstr "编解码器"
+
+#. This is a noun/label for the station stream url
+#: data/gtk/station_dialog.ui:241
+msgid "Stream"
+msgstr "媒体流"
+
+#: data/gtk/station_dialog.ui:247
+msgid "Copy"
+msgstr "复制"
+
+#: data/gtk/track_dialog.ui:76
+msgid "Edit"
+msgstr "编辑"
+
+#: data/gtk/track_dialog.ui:123
+msgid "The recorded track has been saved"
+msgstr "录制的音轨已被保存"
+
+#: data/gtk/track_dialog.ui:139 data/gtk/track_dialog.ui:210
+#: data/gtk/track_row.ui:10 src/audio/player.rs:448
+msgid "Save Track"
+msgstr "保存音轨"
+
+#: data/gtk/track_dialog.ui:150
+msgid "Play Track"
+msgstr "播放音轨"
+
+#: data/gtk/track_dialog.ui:161
+msgid "Cancel Recording"
+msgstr "取消录制"
+
+#: data/gtk/track_dialog.ui:177
+msgid "Station"
+msgstr "电台"
+
+#: data/gtk/track_dialog.ui:211
+msgid "Save this track when recording is complete"
+msgstr "录制完成后保存此音轨"
+
+#: data/gtk/track_dialog.ui:225
+msgid "Recording behaviour can be changed in <a href=\"\">preferences</a>"
+msgstr "录制行为可以在<a href=\"\">首选项</a>中更改"
+
+#: data/gtk/track_row.ui:21
+msgid "Saved"
+msgstr "已保存"
+
+#: data/gtk/volume_control.ui:9
+msgid "Toggle Mute"
+msgstr "切换静音"
+
+#: src/app.rs:85
+msgid "Track no longer available"
+msgstr "音轨不再可用"
+
+#: src/app.rs:109 src/app.rs:132
+msgid "This track is currently not being recorded"
+msgstr "此音轨当前未被录制"
+
+#: src/app.rs:259
+#, rust-format
+msgid "Playing “{}”"
+msgstr "正在播放“{}”"
+
+#: src/app.rs:354
+msgid "Active Playback"
+msgstr "活动播放"
+
+#: src/audio/player.rs:458
+msgid "Don't Record"
+msgstr "不要录制"
+
+#: src/audio/recording_state.rs:54 src/audio/recording_state.rs:56
+msgid "Not Recorded"
+msgstr "未被录制"
+
+#: src/audio/recording_state.rs:55
+msgid "Ignored Track"
+msgstr "已忽略音轨"
+
+#: src/audio/recording_state.rs:58
+msgid "Recording…"
+msgstr "正在录制…"
+
+#: src/audio/recording_state.rs:59 src/audio/recording_state.rs:60
+msgid "Recorded"
+msgstr "已录制"
+
+#: src/audio/recording_state.rs:62
+msgid "Below Threshold"
+msgstr "低于阈值"
+
+#: src/audio/recording_state.rs:63
+msgid "Cancelled"
+msgstr "已取消"
+
+#: src/audio/recording_state.rs:69
+msgid "Recording is deactivated in preferences"
+msgstr "未在首选项中启用录制"
+
+#: src/audio/recording_state.rs:71
+msgid "The track contains a word that is on the ignore list"
+msgstr "该音轨包含了忽略列表上的词语"
+
+#: src/audio/recording_state.rs:74
+msgid ""
+"The track wasn't played from the beginning, so it can't be fully recorded"
+msgstr "该音轨未从头播放，因此无法完整录制"
+
+#: src/audio/recording_state.rs:77
+msgid "The track will be recorded until a new track gets played"
+msgstr "将录制该音轨直到播放新音轨"
+
+#: src/audio/recording_state.rs:79
+msgid "The track has been temporarily recorded"
+msgstr "该音轨已被临时录制"
+
+#: src/audio/recording_state.rs:81
+msgid "The maximum recording duration has been reached"
+msgstr "已达到最大录制时长"
+
+#: src/audio/recording_state.rs:84
+msgid ""
+"The track has been discarded as the duration was below the set threshold"
+msgstr "由于时长低于设定阈值已舍弃该音轨"
+
+#: src/audio/recording_state.rs:86
+msgid "Recording has been cancelled"
+msgstr "录制已被取消"
+
+#: src/device/device_discovery.rs:83
+msgid "Google Cast Device"
+msgstr "Google Cast 设备"
+
+#: src/device/device_discovery.rs:86
+msgid "Unknown Model"
+msgstr "未知型号"
+
+#: src/ui/about_dialog.rs:45
+msgid "translator-credits"
+msgstr ""
+"Damned <damnedlies@163.com>, 2020.\n"
+"Dingzhong Chen <wsxy162@gmail.com>, 2020.\n"
+"Junping Sun <junping@nfschina.com>, 2021.\n"
+"Liu Tao <lyuutau@outlook.com>, 2021.\n"
+"lumingzh <lumingzh@qq.com>, 2022-2025."
+
+#: src/ui/about_dialog.rs:46
+msgid "Donate"
+msgstr "捐助"
+
+#: src/ui/add_station_dialog.rs:94
+msgid "Select Station Cover"
+msgstr "选择电台封面"
+
+#: src/ui/display_error.rs:50
+msgid "Show Details"
+msgstr "显示详情"
+
+#: src/ui/pages/library_page.rs:111
+#, rust-format
+msgid "Welcome to {}"
+msgstr "欢迎使用 {}"
+
+#: src/ui/preferences_dialog.rs:139
+msgid "Select Save Directory"
+msgstr "选择保存目录"
+
+#: src/ui/preferences_dialog.rs:140
+msgid "_Select"
+msgstr "选择(_S)"
+
+#: src/ui/preferences_dialog.rs:163
+#, rust-format
+msgid "{} min"
+msgid_plural "{} min"
+msgstr[0] "{} 分钟"
+
+#: src/ui/preferences_dialog.rs:172
+#, rust-format
+msgid "{} sec"
+msgid_plural "{} sec"
+msgstr[0] "{} 秒"
+
+#: src/ui/station_dialog.rs:207
+#, rust-format
+msgid "{} kbit/s"
+msgstr "{} kbit/s"
+
+#: src/ui/station_dialog.rs:292
+msgid "Copied"
+msgstr "已复制"
+
+#: src/ui/window.rs:226
+msgid "No Permission for Background Playback"
+msgstr "无后台播放权限"
+
+#: src/ui/window.rs:228
+msgid "“Run in Background” must be allowed for this app in system settings."
+msgstr "必须在系统设置中允许此应用“后台运行”。"
+
+#: src/ui/window.rs:232
+msgid "Try Anyway"
+msgstr "仍然尝试"
+
+#: src/ui/window.rs:233
+msgid "Disable Background Playback"
+msgstr "禁用后台播放"
+
+#: src/utils.rs:51
+#, rust-format
+msgid "{} hour"
+msgid_plural "{} hours"
+msgstr[0] "{} 小时"
+
+#: src/utils.rs:57
+#, rust-format
+msgid "{} minute"
+msgid_plural "{} minutes"
+msgstr[0] "{} 分钟"
+
+#: src/utils.rs:62
+#, rust-format
+msgid "{} second"
+msgid_plural "{} seconds"
+msgstr[0] "{} 秒"
+
+#~ msgid "0 seconds"
+#~ msgstr "0 秒"
+
+#~ msgid "No Songs"
+#~ msgstr "无歌曲"
+
+#~ msgid ""
+#~ "Songs that have been identified and recorded using the stream metadata "
+#~ "will appear here."
+#~ msgstr "使用串流元数据识别和录制的歌曲将出现在这里。"
+
+#~ msgid "Features"
+#~ msgstr "特性"
+
+#~ msgid "Save recorded song"
+#~ msgstr "保存录制的歌曲"
+
+#~ msgid "Station cannot be streamed. URL is not valid."
+#~ msgstr "电台无法串流。网址无效。"
+
+#~ msgid "Recording in Progress"
+#~ msgstr "正在进行录制"
+
+#~ msgid ""
+#~ "The current song cannot be fully recorded. The beginning has been missed."
+#~ msgstr "当前歌曲无法完整录制。开头已被漏掉。"
+
+#~ msgid "Create new station"
+#~ msgstr "创建新电台"
+
+#~ msgid "Create New Station"
+#~ msgstr "创建新电台"
+
+#~ msgid ""
+#~ "You can decide if you want the new station to be visible for all users "
+#~ "worldwide or if you want to create a local station."
+#~ msgstr "您可以决定新电台是否对全球所有用户可见或创建本地电台。"
+
+#~ msgid "Create _Public Station"
+#~ msgstr "创建公共电台(_P)"
+
+#~ msgid "Create _Local Station"
+#~ msgstr "创建本地电台(_L)"
+
+#~ msgid "Create Local Station"
+#~ msgstr "创建本地电台"
+
+#~ msgid "Create Station"
+#~ msgstr "创建电台"
+
+#~ msgid "_Create New Station"
+#~ msgstr "创建新电台(_C)"
+
+#~ msgid "Resize"
+#~ msgstr "改变大小"
+
+#~ msgid "Create new Station"
+#~ msgstr "创建新电台"
+
+#~ msgid "Try using a different search term"
+#~ msgstr "尝试使用不同的搜索关键字"
+
+#~ msgid "_Play Station"
+#~ msgstr "播放电台(_P)"
+
+#~ msgid "Incomplete"
+#~ msgstr "未完成"
+
+#~ msgid "_Votes"
+#~ msgstr "票数(_V)"
+
+#~ msgid "Votes"
+#~ msgstr "票数"
+
+#~ msgid "Find stations using radio-browser.info"
+#~ msgstr "使用 radio-browser.info 查找电台"
+
+#~ msgid "Change the sorting of the search results"
+#~ msgstr "更改搜索结果的排序"
+
+#~ msgid "Station data could not be received."
+#~ msgstr "无法接收电台数据。"
+
+#~ msgid "Discover"
+#~ msgstr "发现"
+
+#~ msgid "Trending"
+#~ msgstr "流行趋势"
+
+#~ msgid "Other Users Are Listening To…"
+#~ msgstr "其他用户正在收听…"
+
+#~ msgid "Previous"
+#~ msgstr "上一个"
+
+#~ msgid "Next"
+#~ msgstr "下一个"
+
+#~ msgid "Library"
+#~ msgstr "电台库"
+
+#~ msgid "No Songs Detected"
+#~ msgstr "未检测到歌曲"
+
+#~ msgid "Saved songs are located in your Music folder."
+#~ msgstr "已保存的歌曲位于您的音乐文件夹中。"
+
+#~ msgid "_Open"
+#~ msgstr "打开(_O)"
+
+#~ msgid "Show statistics"
+#~ msgstr "显示统计信息"
+
+#~ msgid "Add new station"
+#~ msgstr "添加新电台"
+
+#~ msgid "Your favorite station is missing?"
+#~ msgstr "没有找到您最喜欢的电台？"
+
+#~ msgid "Open website"
+#~ msgstr "打开网站"
+
+#~ msgid "Powered by radio-browser.info"
+#~ msgstr "由 radio-browser.info 提供支持"
+
+#~ msgid ""
+#~ "The number of results is limited to {} item. Try using a more specific "
+#~ "search term."
+#~ msgid_plural ""
+#~ "The number of results is limited to {} items. Try using a more specific "
+#~ "search term."
+#~ msgstr[0] "结果数量已限制为 {} 项。请尝试使用更明确的搜索词语。"
+
+#~ msgid "Start"
+#~ msgstr "开始"
+
+#~ msgid "Station Menu"
+#~ msgstr "电台菜单"
+
+#~ msgid "Stream to a _Device"
+#~ msgstr "串流到设备(_D)"
+
+#~ msgid "Stream to a Device"
+#~ msgstr "串流到设备"
+
+#~ msgid ""
+#~ "Audio playback can be streamed to a network device (requires Google Cast "
+#~ "support)."
+#~ msgstr "音频播放可以串流至网络设备（需要 Google Cast 支持）。"
+
+#~ msgid "Search Again"
+#~ msgstr "再次搜索"
+
+#~ msgid "Main View"
+#~ msgstr "主视图"
+
+#~ msgid "Unable to access music directory. Saving song in home directory."
+#~ msgstr "无法访问音乐目录。在主目录保存歌曲。"
+
+#~ msgid "Cannot save song."
+#~ msgstr "无法保存歌曲。"
+
+#~ msgid "Receiving Station Data…"
+#~ msgstr "正在接收电台数据…"
+
+#~ msgid "Back"
+#~ msgstr "返回"
+
+#~ msgctxt "shortcut window"
+#~ msgid "Open library view"
+#~ msgstr "打开库视图"
+
+#~ msgctxt "shortcut window"
+#~ msgid "Open discover view"
+#~ msgstr "打开发现视图"
+
+#~ msgctxt "shortcut window"
+#~ msgid "Open search view"
+#~ msgstr "打开搜索视图"
+
+#~ msgctxt "shortcut window"
+#~ msgid "Go back"
+#~ msgstr "返回"
+
+#~ msgctxt "shortcut window"
+#~ msgid "Refresh station data"
+#~ msgstr "刷新电台数据"
+
+#~ msgid "Station details"
+#~ msgstr "电台详细信息"
+
+#~ msgid ""
+#~ "Access to the public online station database is not available. Ensure "
+#~ "that you are connected to the internet."
+#~ msgstr "无法访问公共在线电台数据库，请确保您已经连接到互联网。"
+
+#~ msgid "Appearance"
+#~ msgstr "外观"
+
+#~ msgid "_Dark Mode"
+#~ msgstr "深色模式(_D)"
+
+#~ msgid "Whether the application should use a dark theme"
+#~ msgstr "应用程序是否要使用深色主题"
+
+#~ msgid "Open Application Menu"
+#~ msgstr "打开应用程序菜单"
+
+#~ msgid "_How does this work?"
+#~ msgstr "这是如何做到的？(_H)"
+
+#~ msgid "Error details"
+#~ msgstr "错误详细信息"
+
+#~ msgid "URL is not valid."
+#~ msgstr "URL 无效。"
+
+#~ msgid "An invalid station was removed from the library."
+#~ msgstr "已从库中移除一个无效的电台。"
+
+#~ msgid "_Connect"
+#~ msgstr "连接(_C)"
+
+#~ msgid "Devices which implement the Google Cast protocol are supported."
+#~ msgstr "支持实现了 Google Cast 协议的设备。"
+
+#~ msgid "_Retry search"
+#~ msgstr "重试搜索(_R)"
+
+#~ msgid "This is a local private station."
+#~ msgstr "这是本地私人电台。"
+
+#~ msgid ""
+#~ "This station is visible only to you. If you remove this station from your "
+#~ "library, you have to create it again."
+#~ msgstr "该电台仅对您可见。如果您从库中移除该电台，之后只能再次创建。"
+
+#~ msgid "This station cannot be played because the stream is offline."
+#~ msgstr "无法播放该电台，因为该音频流是离线的。"
+
+#~ msgid "Homepage"
+#~ msgstr "主页"
+
+#~ msgid "{} Vote"
+#~ msgid_plural "{} Votes"
+#~ msgstr[0] "{} 票"
+
+#~ msgid "{} · {} Vote"
+#~ msgid_plural "{} · {} Votes"
+#~ msgstr[0] "{} · {} 票"
+
+#~ msgid "Languages"
+#~ msgstr "语言"

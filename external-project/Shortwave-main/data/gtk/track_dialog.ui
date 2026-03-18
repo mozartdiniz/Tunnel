@@ -1,0 +1,249 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <template class="SwTrackDialog" parent="AdwDialog">
+    <property name="width_request">325</property>
+    <property name="height_request">294</property>
+    <property name="content_width">500</property>
+    <property name="content_height">650</property>
+    <child>
+      <object class="AdwToastOverlay" id="toast_overlay">
+        <child>
+          <object class="AdwToolbarView">
+            <child type="top">
+              <object class="AdwHeaderBar" />
+            </child>
+            <child>
+              <object class="GtkStack" id="dialog_stack">
+                <child>
+                  <object class="GtkScrolledWindow">
+                    <property name="hscrollbar_policy">never</property>
+                    <child>
+                      <object class="AdwClamp">
+                        <child>
+                          <object class="GtkBox">
+                            <property name="orientation">vertical</property>
+                            <property name="margin_start">12</property>
+                            <property name="margin_end">12</property>
+                            <property name="margin_top">6</property>
+                            <property name="spacing">12</property>
+                            <child>
+                              <object class="GtkBox">
+                                <property name="height_request">192</property>
+                                <property name="width_request">192</property>
+                                <property name="halign">center</property>
+                                <child>
+                                  <object class="GtkImage">
+                                    <property name="accessible_role">presentation</property>
+                                    <property name="icon_name">folder-music-symbolic</property>
+                                    <property name="hexpand">True</property>
+                                    <property name="pixel_size">64</property>
+                                    <style>
+                                      <class name="dimmed" />
+                                    </style>
+                                  </object>
+                                </child>
+                                <style>
+                                  <class name="card" />
+                                </style>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkCenterBox">
+                                <property name="halign">center</property>
+                                <child type="center">
+                                  <object class="GtkLabel" id="title_label">
+                                    <property name="wrap">True</property>
+                                    <property name="justify">center</property>
+                                    <property name="margin_top">6</property>
+                                    <property name="ellipsize">end</property>
+                                    <property name="lines">5</property>
+                                    <binding name="label">
+                                      <lookup name="title" type="SwTrack">
+                                        <lookup name="track">SwTrackDialog</lookup>
+                                      </lookup>
+                                    </binding>
+                                    <style>
+                                      <class name="title-2" />
+                                    </style>
+                                  </object>
+                                </child>
+                                <child type="end">
+                                  <object class="GtkButton">
+                                    <property name="icon_name">document-edit-symbolic</property>
+                                    <property name="valign">center</property>
+                                    <property name="visible">False</property>
+                                    <property name="margin_start">12</property>
+                                    <property name="tooltip_text" translatable="yes">Edit</property>
+                                    <style>
+                                      <class name="circular" />
+                                    </style>
+                                  </object>
+                                </child>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkBox">
+                                <property name="spacing">6</property>
+                                <property name="halign">center</property>
+                                <child>
+                                  <object class="GtkLabel" id="subtitle_label">
+                                    <property name="wrap">True</property>
+                                    <property name="justify">center</property>
+                                    <property name="halign">center</property>
+                                    <style>
+                                      <class name="title-4" />
+                                    </style>
+                                  </object>
+                                </child>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkLabel" id="duration_label">
+                                <attributes>
+                                  <attribute name="font-features" value="tnum" />
+                                </attributes>
+                                <style>
+                                  <class name="heading" />
+                                </style>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkLabel" id="description_label">
+                                <property name="wrap">True</property>
+                                <property name="justify">center</property>
+                                <property name="margin_bottom">6</property>
+                                <property name="visible" bind-source="saved_label" bind-property="visible" bind-flags="sync-create|invert-boolean" />
+                                <style>
+                                  <class name="dimmed" />
+                                </style>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkLabel" id="saved_label">
+                                <property name="label" translatable="yes">The recorded track has been saved</property>
+                                <property name="wrap">True</property>
+                                <property name="justify">center</property>
+                                <property name="margin_bottom">6</property>
+                                <binding name="visible">
+                                  <lookup name="is-saved" type="SwTrack">
+                                    <lookup name="track">SwTrackDialog</lookup>
+                                  </lookup>
+                                </binding>
+                                <style>
+                                  <class name="dimmed" />
+                                </style>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkButton" id="save_button">
+                                <property name="label" translatable="yes">Save Track</property>
+                                <property name="action_name">track.save</property>
+                                <property name="halign">center</property>
+                                <style>
+                                  <class name="suggested-action" />
+                                  <class name="pill" />
+                                </style>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkButton" id="play_button">
+                                <property name="label" translatable="yes">Play Track</property>
+                                <property name="action_name">track.play</property>
+                                <property name="halign">center</property>
+                                <style>
+                                  <class name="suggested-action" />
+                                  <class name="pill" />
+                                </style>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkButton" id="cancel_button">
+                                <property name="label" translatable="yes">Cancel Recording</property>
+                                <property name="action_name">track.cancel</property>
+                                <property name="halign">center</property>
+                                <style>
+                                  <class name="destructive-action" />
+                                  <class name="pill" />
+                                </style>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="AdwPreferencesGroup">
+                                <property name="margin_top">12</property>
+                                <property name="margin_bottom">12</property>
+                                <property name="separate_rows">True</property>
+                                <child>
+                                  <object class="AdwActionRow" id="station_row">
+                                    <property name="title" translatable="yes">Station</property>
+                                    <property name="activatable">True</property>
+                                    <property name="use_markup">False</property>
+                                    <signal name="activated" handler="show_station_details" swapped="true" />
+                                    <binding name="subtitle">
+                                      <lookup name="title" type="SwStation">
+                                        <lookup name="station" type="SwTrack">
+                                          <lookup name="track">SwTrackDialog</lookup>
+                                        </lookup>
+                                      </lookup>
+                                    </binding>
+                                    <child type="prefix">
+                                      <object class="SwStationCover">
+                                        <property name="size">32</property>
+                                        <binding name="station">
+                                          <lookup name="station" type="SwTrack">
+                                            <lookup name="track">SwTrackDialog</lookup>
+                                          </lookup>
+                                        </binding>
+                                      </object>
+                                    </child>
+                                    <child type="suffix">
+                                      <object class="GtkImage">
+                                        <property name="icon_name">go-next-symbolic</property>
+                                      </object>
+                                    </child>
+                                    <style>
+                                      <class name="property" />
+                                    </style>
+                                  </object>
+                                </child>
+                                <child>
+                                  <object class="AdwActionRow" id="save_track_row">
+                                    <property name="title" translatable="yes">Save Track</property>
+                                    <property name="subtitle" translatable="yes">Save this track when recording is complete</property>
+                                    <property name="use_underline">True</property>
+                                    <property name="activatable_widget">save_track_switch</property>
+                                    <child>
+                                      <object class="GtkSwitch" id="save_track_switch">
+                                        <property name="valign">center</property>
+                                      </object>
+                                    </child>
+                                  </object>
+                                </child>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkLabel" id="recording_label">
+                                <property name="label" translatable="yes">Recording behaviour can be changed in &lt;a href=""&gt;preferences&lt;/a&gt;</property>
+                                <property name="wrap">True</property>
+                                <property name="use_markup">True</property>
+                                <property name="justify">center</property>
+                                <property name="margin_bottom">18</property>
+                                <style>
+                                  <class name="dimmed" />
+                                  <class name="caption" />
+                                </style>
+                              </object>
+                            </child>
+                          </object>
+                        </child>
+                      </object>
+                    </child>
+                  </object>
+                </child>
+              </object>
+            </child>
+          </object>
+        </child>
+      </object>
+    </child>
+  </template>
+</interface>

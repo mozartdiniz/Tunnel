@@ -59,6 +59,9 @@ zip = "2"
 tempfile = "3"
 walkdir = "2"
 
+# Enum-to-string derivation (action name registry)
+strum = { version = "0.26", features = ["derive"] }
+
 # Utilities
 uuid = { version = "1", features = ["v4"] }
 directories = "5"

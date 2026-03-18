@@ -1,0 +1,769 @@
+# Cornish translation for shortwave.
+# Copyright (C) 2026 shortwave's COPYRIGHT HOLDER
+# This file is distributed under the same license as the shortwave package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+# Flynn Peck <cirilla@tuta.io>, 2026.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: shortwave main\n"
+"Report-Msgid-Bugs-To: https://gitlab.gnome.org/World/Shortwave/issues\n"
+"POT-Creation-Date: 2026-01-12 20:45+0000\n"
+"PO-Revision-Date: 2026-02-10 15:41+0000\n"
+"Last-Translator: Flynn Peck <cirilla@tuta.io>\n"
+"Language-Team: kw\n"
+"Language: kw\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"X-DL-VCS-Web: https://gitlab.gnome.org/World/Shortwave\n"
+"X-DL-Lang: kw\n"
+"X-DL-Module: shortwave\n"
+"X-DL-Branch: main\n"
+"X-DL-Domain: po\n"
+"X-DL-State: Translating\n"
+"X-Generator: Gtranslator 49.0\n"
+
+#: data/de.haeckerfelix.Shortwave.desktop.in.in:2
+#: data/de.haeckerfelix.Shortwave.metainfo.xml.in.in:5
+msgid "@NAME@"
+msgstr "@NAME@"
+
+#: data/de.haeckerfelix.Shortwave.desktop.in.in:3
+msgid "Internet Radio Player"
+msgstr "Gwarier Radyo Kesrosweyth"
+
+#. General
+#: data/de.haeckerfelix.Shortwave.desktop.in.in:4
+#: data/de.haeckerfelix.Shortwave.metainfo.xml.in.in:10
+msgid "Listen to internet radio"
+msgstr "Goslowes orth radyo kesrosweyth"
+
+#. Translators: Search terms to find this application. Do NOT translate or localize the semicolons! The list MUST also end with a semicolon!
+#: data/de.haeckerfelix.Shortwave.desktop.in.in:13
+msgid "Gradio;Radio;Stream;Wave;"
+msgstr "Gradio;Radyo;Strem;Tonn;"
+
+#: data/de.haeckerfelix.Shortwave.metainfo.xml.in.in:12
+msgid ""
+"Shortwave is an internet radio player that provides access to a station "
+"database with over 50,000 stations."
+msgstr ""
+"Shortwave yw gwarier radyo kesrosweyth ow provia hedhas dhe'n sel dherivasow "
+"gorsavow gans moy es 50,000 gorsavow."
+
+#: data/de.haeckerfelix.Shortwave.metainfo.xml.in.in:15
+msgid "Features:"
+msgstr "Nasyow:"
+
+#: data/de.haeckerfelix.Shortwave.metainfo.xml.in.in:17
+#: data/de.haeckerfelix.Shortwave.metainfo.xml.in.in:64
+msgid "Create your own library where you can add your favorite stations"
+msgstr "Gul dha lyverva le may ty a yll addya dha gorsavow drudh"
+
+#: data/de.haeckerfelix.Shortwave.metainfo.xml.in.in:18
+#: data/de.haeckerfelix.Shortwave.metainfo.xml.in.in:68
+msgid "Easily search and discover new radio stations"
+msgstr "Hwilas yn es ha trovya gorsavow radyo nowydh"
+
+#: data/de.haeckerfelix.Shortwave.metainfo.xml.in.in:19
+msgid ""
+"Automatic recognition of tracks, with the possibility to save them "
+"individually"
+msgstr ""
+"Aswonans awtomatek a kanow, gans an gallow dhe sawya y's yn kettep penn"
+
+#: data/de.haeckerfelix.Shortwave.metainfo.xml.in.in:20
+#: data/de.haeckerfelix.Shortwave.metainfo.xml.in.in:72
+msgid "Responsive application layout, compatible for small and large screens"
+msgstr "Aray app gorthebus, kesplegadow rag skrinyow byghan ha bras"
+
+#: data/de.haeckerfelix.Shortwave.metainfo.xml.in.in:21
+msgid "Play audio on supported network devices (e.g. Google Chromecasts)"
+msgstr "Gwari son war devisyow rosweyth skoodhys (r.e. Google Chromecast)"
+
+#: data/de.haeckerfelix.Shortwave.metainfo.xml.in.in:22
+msgid "Seamless integration into the GNOME desktop environment"
+msgstr "Oberyans fin y'n kerghynnedh desktop GNOME"
+
+#. Branding
+#: data/de.haeckerfelix.Shortwave.metainfo.xml.in.in:28
+msgid "Felix Häcker"
+msgstr "Felix Häcker"
+
+#: data/gtk/add_station_dialog.ui:14
+msgid "Add Local Station"
+msgstr "Addya Gorsav Leel"
+
+#: data/gtk/add_station_dialog.ui:64
+msgid "Change Station Cover"
+msgstr "Chanjya Aden Gorsav"
+
+#: data/gtk/add_station_dialog.ui:95
+msgid ""
+"This station will only be added to your library. If you want it to be "
+"available to everyone, you should add it to the <a href=\"https://www.radio-"
+"browser.info/add\">public database</a>."
+msgstr ""
+"An gorsav ma a wra bos addys dhe dha lyverva hepken. Mar ty mynnes yth bos "
+"kavadow rag pubonan, ty kodh addya yth dhe'n <a href=\"https://www.radio-"
+"browser.info/add\">sel dherivasow poblek</a>."
+
+#: data/gtk/add_station_dialog.ui:107
+msgid "Name"
+msgstr "Hanow"
+
+#: data/gtk/add_station_dialog.ui:115
+msgid "Stream URL"
+msgstr "Gorgevren Strem"
+
+#: data/gtk/add_station_dialog.ui:123
+msgid "Add Station"
+msgstr "Addya Gorsav"
+
+#: data/gtk/device_dialog.ui:7 data/gtk/player_view.ui:134
+msgid "Connect Device"
+msgstr "Junya Devis"
+
+#: data/gtk/device_dialog.ui:18
+msgid "Searching for Devices…"
+msgstr "Ow Hwilas Devisyow…"
+
+#: data/gtk/device_dialog.ui:25
+msgid "Search for Devices"
+msgstr "Hwilas Devisyow"
+
+#: data/gtk/device_dialog.ui:41
+msgid "No Devices Available"
+msgstr "Devisyow Kavadow Vyth"
+
+#: data/gtk/device_dialog.ui:42
+msgid "No supported Google Cast device found"
+msgstr "Devis Google Cast skoodhys kavas vyth"
+
+#: data/gtk/device_indicator.ui:7
+msgid "Disconnect From Device"
+msgstr "Disjunya Devis"
+
+#: data/gtk/library_page.ui:4
+msgid "Shortwave"
+msgstr "Shortwave"
+
+#: data/gtk/library_page.ui:15 data/gtk/search_page.ui:4
+msgid "Browse Stations"
+msgstr "Peuri Gorsavow"
+
+#: data/gtk/library_page.ui:23
+msgid "Main Menu"
+msgstr "Rol Chif"
+
+#: data/gtk/library_page.ui:92
+msgid "_Add New Stations"
+msgstr "_Addya Gorsavow Nowydh"
+
+#: data/gtk/library_page.ui:115
+msgid "_Sorting"
+msgstr "_Sortyans"
+
+#: data/gtk/library_page.ui:118
+msgid "_Name"
+msgstr "_Hanow"
+
+#: data/gtk/library_page.ui:123
+msgid "_Language"
+msgstr "_Yeth"
+
+#: data/gtk/library_page.ui:128
+msgid "_Country"
+msgstr "_Bro"
+
+#: data/gtk/library_page.ui:133
+msgid "S_tate"
+msgstr "S_tat"
+
+#: data/gtk/library_page.ui:138
+msgid "_Bitrate"
+msgstr "_Kevradh Bytt"
+
+#: data/gtk/library_page.ui:145
+msgid "_Ascending"
+msgstr "_Yskynnus"
+
+#: data/gtk/library_page.ui:150
+msgid "_Descending"
+msgstr "_Diyskynnus"
+
+#: data/gtk/library_page.ui:159
+msgid "_Open radio-browser.info <sup>↗</sup>"
+msgstr "_Ygeri radio-browser.info <sup>↗</sup>"
+
+#: data/gtk/library_page.ui:166
+msgid "_Preferences"
+msgstr "_Settyansow"
+
+#: data/gtk/library_page.ui:170
+msgid "_Keyboard Shortcuts"
+msgstr "_Kesunyansow Bysowek"
+
+#: data/gtk/library_page.ui:174
+msgid "_About Shortwave"
+msgstr "_A-dro Shortwave"
+
+#: data/gtk/library_page.ui:178
+msgid "_Quit"
+msgstr "_Kwytya"
+
+#: data/gtk/library_page.ui:186
+msgid "Add _Local Station"
+msgstr "Addya Gorsav _Leel"
+
+#: data/gtk/player_gadget.ui:40 data/gtk/player_toolbar.ui:92
+#: data/gtk/player_view.ui:158 data/gtk/station_row.ui:86
+msgid "Play"
+msgstr "Gwari"
+
+#: data/gtk/player_gadget.ui:55 data/gtk/player_toolbar.ui:106
+#: data/gtk/player_view.ui:172
+msgid "Stop"
+msgstr "Astel"
+
+#: data/gtk/player_gadget.ui:71 data/gtk/player_toolbar.ui:121
+#: data/gtk/player_view.ui:187
+msgid "Buffering…"
+msgstr "Ow Karga…"
+
+#: data/gtk/player_gadget.ui:118
+msgid "SHORTWAVE INTERNET RADIO"
+msgstr "RADYO KESROSWEYTH SHORTWAVE"
+
+#: data/gtk/player_gadget.ui:140 data/gtk/player_toolbar.ui:29
+#: data/gtk/player_view.ui:58 src/app.rs:254
+msgid "No Playback"
+msgstr "Senyans Vyth"
+
+#: data/gtk/player_gadget.ui:199
+msgid "Close"
+msgstr "Degea"
+
+#: data/gtk/player_gadget.ui:210
+msgid "Restore Window"
+msgstr "Daskor Fenester"
+
+#: data/gtk/player_view.ui:13
+msgid "Enable Gadget Mode"
+msgstr "Gallosegi Fordh Henbyth"
+
+#: data/gtk/player_view.ui:217
+msgid "Show Station Details"
+msgstr "Diskwedhes Manylyon Gorsav"
+
+#: data/gtk/player_view.ui:268
+msgid "No Tracks"
+msgstr "Kanow Vyth"
+
+#: data/gtk/player_view.ui:279
+msgid "Played tracks will appear here"
+msgstr "Kanow gwarys a wra diskwedhes omma"
+
+#: data/gtk/player_view.ui:313
+msgid "An error occurred"
+msgstr "Yma error"
+
+#: data/gtk/preferences_dialog.ui:9 data/gtk/shortcuts_dialog.ui:6
+msgid "General"
+msgstr "Ollgemmyn"
+
+#: data/gtk/preferences_dialog.ui:12 data/gtk/shortcuts_dialog.ui:47
+msgid "Playback"
+msgstr "Senyans"
+
+#: data/gtk/preferences_dialog.ui:15
+msgid "_Background Playback"
+msgstr "Senyans _Kilva"
+
+#: data/gtk/preferences_dialog.ui:16
+msgid "Playback continues when window is closed"
+msgstr "Senyans pesya wosa fenester yw deges"
+
+#: data/gtk/preferences_dialog.ui:28
+msgid "_Notifications"
+msgstr "_Gwarnyansow"
+
+#: data/gtk/preferences_dialog.ui:29
+msgid "Show desktop notifications when a new track gets played"
+msgstr "Diskwedhes gwarnyansow desktop pan unn kan nowydh yw ow gwari"
+
+#. Translators: This is a noun / preferences group title
+#: data/gtk/preferences_dialog.ui:43
+msgid "Recording"
+msgstr "Sonskrif"
+
+#: data/gtk/preferences_dialog.ui:44
+msgid ""
+"Tracks are automatically recognised based on the station stream metadata and "
+"can be saved."
+msgstr ""
+"Kanow yw aswonys yn awtomatek selys war'n metadata strem gorsav hag a yll "
+"bos sawys."
+
+#: data/gtk/preferences_dialog.ui:47
+msgid "Track _Directory"
+msgstr "_Kevarwedhyador Kanow"
+
+#: data/gtk/preferences_dialog.ui:69
+msgid "Save _All Tracks"
+msgstr "Sawya _Oll Kanow"
+
+#: data/gtk/preferences_dialog.ui:70
+msgid "All recorded tracks are automatically saved in the track directory"
+msgstr "Oll kanow sonskrifys yw sawys yn awtomatek y'n kevarwedhyador kanow"
+
+#: data/gtk/preferences_dialog.ui:84
+msgid "Decide for Each _Track"
+msgstr "Ervira rag _Pub Kan"
+
+#: data/gtk/preferences_dialog.ui:85
+msgid "Tracks are temporarily recorded and can be saved if desired"
+msgstr "Kanow yw sonskrifys yn servadow hag a yll bos sawys yn fast yw hwansys"
+
+#: data/gtk/preferences_dialog.ui:100
+msgid "Record N_othing"
+msgstr "Sonskrifa _Mann"
+
+#: data/gtk/preferences_dialog.ui:101
+msgid "Stations are played without recording"
+msgstr "Gorsavow yw gwarys heb sonskrif"
+
+#: data/gtk/preferences_dialog.ui:120
+msgid "M_inimum Duration"
+msgstr "Termyn _Lyha"
+
+#: data/gtk/preferences_dialog.ui:121
+msgid "Tracks shorter than the minimum duration will be ignored"
+msgstr "Kanow berra es an termyn lyha a wra bos skonys aswon"
+
+#: data/gtk/preferences_dialog.ui:136
+msgid "M_aximum Duration"
+msgstr "Termyn _Moyha"
+
+#: data/gtk/preferences_dialog.ui:137
+msgid "Recording ends when the maximum duration is reached"
+msgstr "Sonskrif diwedha pan an termyn moyha yw hedhys"
+
+#: data/gtk/search_filter.ui:21
+msgid "Search"
+msgstr "Hwilas"
+
+#: data/gtk/search_filter.ui:22
+msgid "Search stations"
+msgstr "Hwilas gorsavow"
+
+#: data/gtk/search_filter.ui:32
+msgid "Search Filter"
+msgstr "Sidhel Hwithrans"
+
+#: data/gtk/search_page.ui:55
+msgid "Discover over 50,000 public stations"
+msgstr "Trovya moy es 50,000 gorsavow poblek"
+
+#: data/gtk/search_page.ui:73
+msgid "Popular Stations"
+msgstr "Gorsavow Gerys-Da"
+
+#: data/gtk/search_page.ui:95
+msgid "Discover New Stations"
+msgstr "Trovya Gorsavow Nowydh"
+
+#: data/gtk/search_page.ui:118
+msgid ""
+"The displayed information is provided by <a href=\"https://www.radio-"
+"browser.info/\">radio-browser.info</a>.\n"
+"Shortwave has no influence on the listed stations."
+msgstr ""
+"An kedhlow diskwedhys yw provys gans <a href=\"https://www.radio-"
+"browser.info/\">radio-browser.info</a>.\n"
+"Shortwave kavos routyans vyth war'n gorsavow rolys."
+
+#: data/gtk/search_page.ui:184
+msgid "Loading…"
+msgstr "Ow karga…"
+
+#: data/gtk/search_page.ui:199
+msgid "No Results"
+msgstr "Sewyansow Vyth"
+
+#: data/gtk/search_page.ui:200
+msgid ""
+"If the station you are looking for is missing, you can add it to the public "
+"database."
+msgstr ""
+"Mars an gorsav ty hwilas yw fyllel, ty a yll addya yth dhe'n sel dherivasow "
+"poblek."
+
+#: data/gtk/search_page.ui:204
+msgid "Add Missing Station"
+msgstr "Addya Gorsav Fyllel"
+
+#: data/gtk/search_page.ui:222
+msgid "Unable to Retrieve Station Data"
+msgstr "Anabel Kerghes Data Gorsav"
+
+#: data/gtk/search_page.ui:225
+msgid "Try Again"
+msgstr "Assaya Arta"
+
+#: data/gtk/shortcuts_dialog.ui:9
+msgctxt "shortcut window"
+msgid "Search stations"
+msgstr "Hwilas gorsavow"
+
+#: data/gtk/shortcuts_dialog.ui:15
+msgctxt "shortcut window"
+msgid "Open shortcut window"
+msgstr "Ygeri fenester kesunyansow bysowek"
+
+#: data/gtk/shortcuts_dialog.ui:22
+msgctxt "shortcut window"
+msgid "Open application menu"
+msgstr "Ygeri rol app"
+
+#: data/gtk/shortcuts_dialog.ui:27
+msgctxt "shortcut window"
+msgid "Open preferences"
+msgstr "Ygeri settyansow"
+
+#: data/gtk/shortcuts_dialog.ui:33
+msgctxt "shortcut window"
+msgid "Close the window"
+msgstr "Degea an fenester"
+
+#: data/gtk/shortcuts_dialog.ui:39
+msgctxt "shortcut window"
+msgid "Quit the application"
+msgstr "Kwytya an app"
+
+#: data/gtk/shortcuts_dialog.ui:50
+msgctxt "shortcut window"
+msgid "Toggle playback"
+msgstr "Dewis senyans"
+
+#: data/gtk/shortcuts_dialog.ui:58 data/gtk/volume_control.ui:21
+msgid "Volume"
+msgstr "Ughelder"
+
+#: data/gtk/shortcuts_dialog.ui:61
+msgctxt "shortcut window"
+msgid "Toggle mute"
+msgstr "Dewis tawesek"
+
+#: data/gtk/shortcuts_dialog.ui:67
+msgctxt "shortcut window"
+msgid "Increase volume"
+msgstr "Kressya ughelder"
+
+#: data/gtk/shortcuts_dialog.ui:73
+msgctxt "shortcut window"
+msgid "Decrease volume"
+msgstr "Iselhe ughelder"
+
+#: data/gtk/station_dialog.ui:71
+msgid "_Play"
+msgstr "_Gwari"
+
+#: data/gtk/station_dialog.ui:82
+msgid "_Add to Library"
+msgstr "_Addya dhe Lyverva"
+
+#: data/gtk/station_dialog.ui:94
+msgid "_Remove From Library"
+msgstr "_Remova Dhyworth Lyverva"
+
+#: data/gtk/station_dialog.ui:111 data/gtk/station_row.ui:57
+msgid "Local Station"
+msgstr "Gorsav Leel"
+
+#: data/gtk/station_dialog.ui:112
+msgid ""
+"This station exists only in your library, and is not part of the public "
+"database"
+msgstr ""
+"An gorsav ma eksistya yn dha lyverva hepken, hag yw na darn a'n sel "
+"dherivasow poblek"
+
+#: data/gtk/station_dialog.ui:126 data/gtk/station_row.ui:69
+msgid "Orphaned Station"
+msgstr "Gorsav Omdhivasys"
+
+#: data/gtk/station_dialog.ui:127
+msgid ""
+"The information could not be updated, probably this station was removed from "
+"the public database"
+msgstr ""
+"An kedhlow ny yllir bos nowedhys, dell hevel an gorsav ma yw removys "
+"dhyworth an sel dherivasow poblek"
+
+#: data/gtk/station_dialog.ui:138
+msgid "Information"
+msgstr "Kedhlow"
+
+#: data/gtk/station_dialog.ui:142
+msgid "Language"
+msgstr "Yeth"
+
+#: data/gtk/station_dialog.ui:153
+msgid "Tags"
+msgstr "Taggys"
+
+#: data/gtk/station_dialog.ui:166
+msgid "Location"
+msgstr "Tyller"
+
+#: data/gtk/station_dialog.ui:170
+msgid "Country"
+msgstr "Bro"
+
+#: data/gtk/station_dialog.ui:181
+msgid "State"
+msgstr "Stat"
+
+#: data/gtk/station_dialog.ui:216
+msgid "Audio"
+msgstr "Son"
+
+#: data/gtk/station_dialog.ui:219
+msgid "Bitrate"
+msgstr "Kevradh Bytt"
+
+#: data/gtk/station_dialog.ui:230
+msgid "Codec"
+msgstr "Kodek"
+
+#. This is a noun/label for the station stream url
+#: data/gtk/station_dialog.ui:241
+msgid "Stream"
+msgstr "Strem"
+
+#: data/gtk/station_dialog.ui:247
+msgid "Copy"
+msgstr "Kopia"
+
+#: data/gtk/track_dialog.ui:76
+msgid "Edit"
+msgstr "Golegi"
+
+#: data/gtk/track_dialog.ui:123
+msgid "The recorded track has been saved"
+msgstr "An kan sonskrifys yw sawys"
+
+#: data/gtk/track_dialog.ui:139 data/gtk/track_dialog.ui:210
+#: data/gtk/track_row.ui:10 src/audio/player.rs:448
+msgid "Save Track"
+msgstr "Sawya Kan"
+
+#: data/gtk/track_dialog.ui:150
+msgid "Play Track"
+msgstr "Gwari Kan"
+
+#: data/gtk/track_dialog.ui:161
+msgid "Cancel Recording"
+msgstr "Hedhi Sonskrif"
+
+#: data/gtk/track_dialog.ui:177
+msgid "Station"
+msgstr "Gorsav"
+
+#: data/gtk/track_dialog.ui:211
+msgid "Save this track when recording is complete"
+msgstr "Sawya an kan ma pan sonskrif yw deu"
+
+#: data/gtk/track_dialog.ui:225
+msgid "Recording behaviour can be changed in <a href=\"\">preferences</a>"
+msgstr "Fara sonskrif a yll bos chanjys yn <a href=\"\">settyansow</a>."
+
+#: data/gtk/track_row.ui:21
+msgid "Saved"
+msgstr "Sawys"
+
+#: data/gtk/volume_control.ui:9
+msgid "Toggle Mute"
+msgstr "Dewis Tawesek"
+
+#: src/app.rs:85
+msgid "Track no longer available"
+msgstr "Kanow kavadow na fella"
+
+#: src/app.rs:109 src/app.rs:132
+msgid "This track is currently not being recorded"
+msgstr "An kan ma yw na ow sonskrifa lemmyn"
+
+#: src/app.rs:259
+#, rust-format
+msgid "Playing “{}”"
+msgstr "Ow gwari “{}”"
+
+#: src/app.rs:354
+msgid "Active Playback"
+msgstr "Senyans Byw"
+
+#: src/audio/player.rs:458
+msgid "Don't Record"
+msgstr "Na Sonskrifa"
+
+#: src/audio/recording_state.rs:54 src/audio/recording_state.rs:56
+msgid "Not Recorded"
+msgstr "Ansonskrifys"
+
+#: src/audio/recording_state.rs:55
+msgid "Ignored Track"
+msgstr "Kan Skonys Aswon"
+
+#: src/audio/recording_state.rs:58
+msgid "Recording…"
+msgstr "Ow sonskrifa…"
+
+#: src/audio/recording_state.rs:59 src/audio/recording_state.rs:60
+msgid "Recorded"
+msgstr "Sonskrifys"
+
+#: src/audio/recording_state.rs:62
+msgid "Below Threshold"
+msgstr "A-is Treudhow"
+
+#: src/audio/recording_state.rs:63
+msgid "Cancelled"
+msgstr "Hedhys"
+
+#: src/audio/recording_state.rs:69
+msgid "Recording is deactivated in preferences"
+msgstr "Sonskrif yw marowhys yn settyansow"
+
+#: src/audio/recording_state.rs:71
+msgid "The track contains a word that is on the ignore list"
+msgstr "An kan kontaynya unn ger war'n rol skonya aswon"
+
+#: src/audio/recording_state.rs:74
+msgid ""
+"The track wasn't played from the beginning, so it can't be fully recorded"
+msgstr ""
+"An kan na gwarys dhyworth an dalleth, ytho yth ny yllir bos sonskrifys yn "
+"leun"
+
+#: src/audio/recording_state.rs:77
+msgid "The track will be recorded until a new track gets played"
+msgstr "An kan a wra bos sonskrifys ernag unn kan nowydh yw gwarys"
+
+#: src/audio/recording_state.rs:79
+msgid "The track has been temporarily recorded"
+msgstr "An kan yw sonskrifys yn servadow"
+
+#: src/audio/recording_state.rs:81
+msgid "The maximum recording duration has been reached"
+msgstr "An termyn sonskrif moyha yw hedhys"
+
+#: src/audio/recording_state.rs:84
+msgid ""
+"The track has been discarded as the duration was below the set threshold"
+msgstr "An kan yw dileys dre reson an termyn yw a-is an treudhow gorrys"
+
+#: src/audio/recording_state.rs:86
+msgid "Recording has been cancelled"
+msgstr "Sonskrif yw hedhys"
+
+#: src/device/device_discovery.rs:83
+msgid "Google Cast Device"
+msgstr "Devis Google Cast"
+
+#: src/device/device_discovery.rs:86
+msgid "Unknown Model"
+msgstr "Eghen Ankoth"
+
+#: src/ui/about_dialog.rs:45
+msgid "translator-credits"
+msgstr "Flynn"
+
+#: src/ui/about_dialog.rs:46
+msgid "Donate"
+msgstr "Argevri"
+
+#: src/ui/add_station_dialog.rs:94
+msgid "Select Station Cover"
+msgstr "Dewis Aden Gorsav"
+
+#: src/ui/display_error.rs:50
+msgid "Show Details"
+msgstr "Diskwedhes Manylyon"
+
+#: src/ui/pages/library_page.rs:111
+#, rust-format
+msgid "Welcome to {}"
+msgstr "Dynnargh dhe {}"
+
+#: src/ui/preferences_dialog.rs:139
+msgid "Select Save Directory"
+msgstr "Dewis Restrenva Sawyans"
+
+#: src/ui/preferences_dialog.rs:140
+msgid "_Select"
+msgstr "_Dewis"
+
+#: src/ui/preferences_dialog.rs:163
+#, rust-format
+msgid "{} min"
+msgid_plural "{} min"
+msgstr[0] "{} mynysen"
+msgstr[1] "{} mynysennow"
+
+#: src/ui/preferences_dialog.rs:172
+#, rust-format
+msgid "{} sec"
+msgid_plural "{} sec"
+msgstr[0] "{} eylen"
+msgstr[1] "{} eylennow"
+
+#: src/ui/station_dialog.rs:207
+#, rust-format
+msgid "{} kbit/s"
+msgstr "{} kbytt/e"
+
+#: src/ui/station_dialog.rs:292
+msgid "Copied"
+msgstr "Kopys"
+
+#: src/ui/window.rs:226
+msgid "No Permission for Background Playback"
+msgstr "Gront Vyth rag Senyans Kilva"
+
+#: src/ui/window.rs:228
+msgid "“Run in Background” must be allowed for this app in system settings."
+msgstr ""
+"“Eksekutya yn Kilva”  res bos gasys rag an app ma y'n settyansow system."
+
+#: src/ui/window.rs:232
+msgid "Try Anyway"
+msgstr "Assaya yn neb Kas"
+
+#: src/ui/window.rs:233
+msgid "Disable Background Playback"
+msgstr "Ungallosegi Senyans Kilva"
+
+#: src/utils.rs:51
+#, rust-format
+msgid "{} hour"
+msgid_plural "{} hours"
+msgstr[0] "{} eur"
+msgstr[1] "{} euryow"
+
+#: src/utils.rs:57
+#, rust-format
+msgid "{} minute"
+msgid_plural "{} minutes"
+msgstr[0] "{} mynysen"
+msgstr[1] "{} mynysennow"
+
+#: src/utils.rs:62
+#, rust-format
+msgid "{} second"
+msgid_plural "{} seconds"
+msgstr[0] "{} eylen"
+msgstr[1] "{} eylennow"

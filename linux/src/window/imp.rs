@@ -17,6 +17,7 @@ use libadwaita::subclass::prelude::*;
 
 use crate::app::AppCommand;
 use crate::config::Config;
+use crate::ui::TransferState;
 
 #[derive(Default, CompositeTemplate)]
 #[template(resource = "/dev/tunnel/Tunnel/window.ui")]
@@ -48,6 +49,8 @@ pub struct Window {
     // ── Mutable UI state ─────────────────────────────────────────────────────
     /// Live peer map: fingerprint → (display name, socket address).
     pub peers: RefCell<HashMap<String, (String, SocketAddr)>>,
+    /// Current transfer lifecycle state — drives all progress-bar / status-dot updates.
+    pub transfer_state: RefCell<TransferState>,
 }
 
 #[glib::object_subclass]

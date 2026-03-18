@@ -3,6 +3,7 @@ use std::path::Path;
 use gtk4::gio;
 use gtk4::prelude::*;
 
+use crate::app::AppAction;
 use super::helpers::human_bytes;
 
 pub fn send_incoming_notification(
@@ -28,12 +29,12 @@ pub fn send_incoming_notification(
     n.set_default_action("app.focus");
     n.add_button_with_target_value(
         "Accept",
-        "app.accept-transfer",
+        &AppAction::AcceptTransfer.prefixed(),
         Some(&transfer_id.to_variant()),
     );
     n.add_button_with_target_value(
         "Deny",
-        "app.deny-transfer",
+        &AppAction::DenyTransfer.prefixed(),
         Some(&transfer_id.to_variant()),
     );
     app.send_notification(Some(transfer_id), &n);
@@ -57,7 +58,7 @@ pub fn send_complete_notification(saved_to: Option<&Path>) {
         n.set_body(Some(&format!("Saved to {label}")));
         n.add_button_with_target_value(
             "Open folder",
-            "app.reveal-file",
+            &AppAction::RevealFile.prefixed(),
             Some(&path.to_string_lossy().to_variant()),
         );
     } else {
