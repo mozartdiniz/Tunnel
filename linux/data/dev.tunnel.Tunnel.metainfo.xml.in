@@ -52,9 +52,13 @@
     <control>touch</control>
   </recommends>
 
-  <screenshots>
-    <screenshot type="default">
-      <caption>Tunnel main window showing nearby devices</caption>
-    </screenshot>
-  </screenshots>
+  <!-- TODO: add hosted screenshot images before Flathub submission.
+       Each <screenshot> must contain an <image> child with a public URL.
+       Example:
+         <screenshot type="default">
+           <image>https://raw.githubusercontent.com/mozartdiniz/Tunnel/main/data/screenshots/main.png</image>
+           <caption>Tunnel main window showing nearby devices</caption>
+         </screenshot>
+  -->
+
 </component>

@@ -1,1 +1,7 @@
+data/dev.tunnel.Tunnel.desktop.in
+data/dev.tunnel.Tunnel.metainfo.xml.in
+data/resources/window.ui
 src/ui/mod.rs
+src/ui/dialogs.rs
+src/ui/notifications.rs
+src/ui/preferences.rs

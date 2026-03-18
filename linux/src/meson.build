@@ -23,7 +23,7 @@ custom_target(
     find_program(meson.project_source_root() / 'build-aux' / 'meson' / 'cargo_wrapper.py'),
     '--manifest-path', meson.project_source_root() / 'Cargo.toml',
     '--bin', 'tunnel',
-    '--target-dir', meson.project_source_root() / 'target',
+    '--target-dir', meson.project_build_root() / 'cargo-target',
     cargo_args,
     '@OUTPUT@',
   ],

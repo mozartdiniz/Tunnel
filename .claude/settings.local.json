@@ -13,7 +13,11 @@
       "Bash(wc:*)",
       "Bash(export PATH=\"$HOME/.cargo/bin:$PATH\")",
       "Read(//Users/mozart/.cargo/**)",
-      "Read(//opt/**)"
+      "Read(//opt/**)",
+      "Bash(find /Users/mozart/Dev/Tunnel/linux -name *.metainfo.xml -o -name *.appdata.xml -o -name *.desktop)",
+      "Bash(find /Users/mozart/Dev/Tunnel/linux -name *.yml -o -name *.yaml -o -name flatpak.json)",
+      "Bash(ls -la /Users/mozart/Dev/Tunnel/linux/build-aux/*.json)",
+      "Bash(chmod:*)"
     ]
   }
 }

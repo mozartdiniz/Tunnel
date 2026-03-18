@@ -8,13 +8,16 @@ sdk-extensions:
 
 build-options:
   append-path: /usr/lib/sdk/rust-stable/bin
-  env:
-    CARGO_HOME: /run/build/tunnel/cargo
 
 command: tunnel
 
 finish-args:
   - --share=network
+  - --share=ipc
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --device=dri
+  - --own-name=dev.tunnel.Tunnel.Devel
   - --filesystem=xdg-download
   - --talk-name=org.freedesktop.portal.FileChooser
   - --talk-name=org.freedesktop.portal.Inhibit
@@ -25,9 +28,11 @@ modules:
     buildsystem: meson
     config-opts:
       - -Dprofile=development
+    build-options:
+      env:
+        CARGO_HOME: /run/build/tunnel/cargo
+        CARGO_NET_OFFLINE: 'true'
     sources:
       - type: dir
         path: ..
-      - type: file
-        path: cargo-sources.json
-        dest: .
+      - cargo-sources.json

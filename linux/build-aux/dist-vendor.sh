@@ -1,28 +1,33 @@
 #!/usr/bin/env bash
-# Vendor all Cargo dependencies for offline Flatpak builds.
-# Usage: ./build-aux/dist-vendor.sh <source-root>
+# Generate build-aux/cargo-sources.json for offline Flatpak builds.
 #
-# Produces a .cargo/config.toml that redirects cargo to the vendored sources,
-# and a cargo-sources.json that the Flatpak manifest can consume via
-# flatpak-cargo-generator.py.
+# Reads Cargo.lock and produces the JSON source list that flatpak-builder
+# uses to pre-download every crate archive before the sandboxed build.
+#
+# Run this after any change to Cargo.lock (e.g. after `cargo update` or
+# adding/removing dependencies), then commit the updated cargo-sources.json.
+#
+# Usage: ./build-aux/dist-vendor.sh [path/to/source-root]
 
 set -euo pipefail
 
-SOURCE_ROOT="${1:-$(dirname "$0")/..}"
+SOURCE_ROOT="${1:-$(cd "$(dirname "$0")/.." && pwd)}"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+LOCKFILE="$SOURCE_ROOT/Cargo.lock"
+OUTPUT="$SCRIPT_DIR/cargo-sources.json"
 
-cd "$SOURCE_ROOT"
+if [[ ! -f "$LOCKFILE" ]]; then
+  echo "error: Cargo.lock not found at $LOCKFILE" >&2
+  exit 1
+fi
 
-echo "Vendoring dependencies…"
-mkdir -p .cargo
-cargo vendor vendor 2>&1 | tee .cargo/config.toml.tmp
+echo "Generating $OUTPUT from $LOCKFILE …"
+python3 "$SCRIPT_DIR/flatpak-cargo-generator.py" \
+  "$LOCKFILE" \
+  --module-name tunnel \
+  -o "$OUTPUT"
 
-cat > .cargo/config.toml <<'EOF'
-[source.crates-io]
-replace-with = "vendored-sources"
-
-[source.vendored-sources]
-directory = "vendor"
-EOF
-
-echo "Done. Vendored sources in ./vendor"
-echo "Run flatpak-cargo-generator.py to generate cargo-sources.json for the Flatpak manifest."
+echo ""
+echo "Next steps:"
+echo "  1. Commit build-aux/cargo-sources.json to the repository."
+echo "  2. Re-run this script whenever Cargo.lock changes."
