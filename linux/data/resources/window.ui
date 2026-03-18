@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <template class="TunnelWindow" parent="AdwApplicationWindow">
+    <property name="default-width">420</property>
+    <property name="default-height">560</property>
+    <property name="icon-name">dev.tunnel.Tunnel</property>
+    <!-- ── Responsive breakpoint (narrow / mobile) ────────────────────── -->
+    <child type="breakpoint">
+      <object class="AdwBreakpoint">
+        <condition>max-width: 360sp</condition>
+        <setter object="list_box" property="margin-start">12</setter>
+        <setter object="list_box" property="margin-end">12</setter>
+        <setter object="list_box" property="margin-top">12</setter>
+        <setter object="progress_bar" property="margin-start">12</setter>
+        <setter object="progress_bar" property="margin-end">12</setter>
+      </object>
+    </child>
+    <child>
+      <object class="AdwToolbarView">
+        <!-- ── Header bar ──────────────────────────────────────────────── -->
+        <child type="top">
+          <object class="AdwHeaderBar">
+            <child>
+              <object class="GtkButton" id="refresh_btn">
+                <property name="icon-name">view-refresh-symbolic</property>
+                <property name="tooltip-text" translatable="yes">Refresh peer list</property>
+              </object>
+            </child>
+            <child type="title">
+              <object class="AdwWindowTitle" id="window_title">
+                <property name="title">Tunnel</property>
+              </object>
+            </child>
+            <child type="end">
+              <object class="GtkButton" id="settings_btn">
+                <property name="icon-name">preferences-system-symbolic</property>
+                <property name="tooltip-text" translatable="yes">Settings</property>
+              </object>
+            </child>
+          </object>
+        </child>
+        <!-- ── Main content ───────────────────────────────────────────── -->
+        <property name="content">
+          <object class="GtkBox">
+            <property name="orientation">vertical</property>
+            <property name="spacing">0</property>
+            <!-- Peer list / empty-state stack -->
+            <child>
+              <object class="GtkStack" id="stack">
+                <property name="vexpand">true</property>
+                <!-- Empty state -->
+                <child>
+                  <object class="GtkStackPage">
+                    <property name="name">empty</property>
+                    <property name="child">
+                      <object class="GtkBox">
+                        <property name="orientation">vertical</property>
+                        <property name="spacing">12</property>
+                        <property name="vexpand">true</property>
+                        <property name="valign">center</property>
+                        <property name="halign">center</property>
+                        <child>
+                          <object class="GtkImage">
+                            <property name="icon-name">search-spinner-symbolic</property>
+                            <property name="pixel-size">96</property>
+                            <style>
+                              <class name="dim-label"/>
+                              <class name="spinning-icon"/>
+                            </style>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="GtkLabel">
+                            <property name="label" translatable="yes">Searching…</property>
+                            <property name="margin-top">8</property>
+                            <style>
+                              <class name="title-2"/>
+                            </style>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="GtkLabel">
+                            <property name="label" translatable="yes">Looking for devices on your network</property>
+                            <style>
+                              <class name="dim-label"/>
+                            </style>
+                          </object>
+                        </child>
+                      </object>
+                    </property>
+                  </object>
+                </child>
+                <!-- Peer list -->
+                <child>
+                  <object class="GtkStackPage">
+                    <property name="name">list</property>
+                    <property name="child">
+                      <object class="GtkScrolledWindow">
+                        <property name="vexpand">true</property>
+                        <child>
+                          <object class="GtkListBox" id="list_box">
+                            <property name="selection-mode">none</property>
+                            <property name="margin-top">24</property>
+                            <property name="margin-bottom">12</property>
+                            <property name="margin-start">24</property>
+                            <property name="margin-end">24</property>
+                            <style>
+                              <class name="boxed-list"/>
+                            </style>
+                          </object>
+                        </child>
+                      </object>
+                    </property>
+                  </object>
+                </child>
+              </object>
+            </child>
+            <!-- Status dot -->
+            <child>
+              <object class="GtkLabel" id="status_dot">
+                <property name="label">●</property>
+                <property name="halign">center</property>
+                <property name="margin-top">14</property>
+                <property name="margin-bottom">14</property>
+                <style>
+                  <class name="status-dot-idle"/>
+                </style>
+              </object>
+            </child>
+          </object>
+        </property>
+        <!-- ── Progress bar (bottom toolbar) ─────────────────────────── -->
+        <child type="bottom">
+          <object class="GtkProgressBar" id="progress_bar">
+            <property name="show-text">true</property>
+            <property name="margin-start">24</property>
+            <property name="margin-end">24</property>
+            <property name="margin-bottom">8</property>
+            <property name="visible">false</property>
+          </object>
+        </child>
+      </object>
+    </child>
+  </template>
+</interface>

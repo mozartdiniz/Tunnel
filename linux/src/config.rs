@@ -25,7 +25,9 @@ impl Config {
 
     pub fn save(&self) -> Result<()> {
         let path = Self::config_file()?;
-        std::fs::create_dir_all(path.parent().unwrap())?;
+        let parent = path.parent()
+            .ok_or_else(|| anyhow::anyhow!("config path has no parent: {}", path.display()))?;
+        std::fs::create_dir_all(parent)?;
         std::fs::write(&path, serde_json::to_string_pretty(self)?)?;
         Ok(())
     }

@@ -1,7 +1,6 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::net::SocketAddr;
-use std::rc::Rc;
 
 use async_channel::Sender;
 use gtk4::glib;
@@ -21,7 +20,7 @@ pub fn handle_event(
     stack: &gtk4::Stack,
     status_dot: &gtk4::Label,
     progress_bar: &gtk4::ProgressBar,
-    peers: &Rc<RefCell<HashMap<String, (String, SocketAddr)>>>,
+    peers: &RefCell<HashMap<String, (String, SocketAddr)>>,
     cmd_tx: &Sender<AppCommand>,
     window: &libadwaita::ApplicationWindow,
 ) {

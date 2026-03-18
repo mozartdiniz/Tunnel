@@ -57,18 +57,15 @@ pub fn show_preferences(
     prefs.add(&page);
 
     let config_pick = config.clone();
-    let folder_row_pick = folder_row.clone();
-    let prefs_weak = prefs.downgrade();
-    choose_btn.connect_clicked(move |_| {
+    choose_btn.connect_clicked(glib::clone!(@weak folder_row, @weak prefs => move |_| {
         let dialog = gtk4::FileDialog::builder()
             .title("Choose Download Folder")
             .modal(true)
             .build();
         let config_c = config_pick.clone();
-        let row_c = folder_row_pick.clone();
-        let parent = prefs_weak.upgrade().map(|w| w.upcast::<gtk4::Window>());
+        let row_c = folder_row.clone();
         dialog.select_folder(
-            parent.as_ref(),
+            Some(&prefs).map(|w| w.upcast_ref::<gtk4::Window>()),
             gtk4::gio::Cancellable::NONE,
             move |result| {
                 if let Ok(file) = result {
@@ -79,9 +76,9 @@ pub fn show_preferences(
                 }
             },
         );
-    });
+    }));
 
-    prefs.connect_close_request(move |_| {
+    prefs.connect_close_request(glib::clone!(@weak name_row => move |_| {
         let new_name = name_row.text().to_string();
         let mut cfg = config.borrow_mut();
 
@@ -95,7 +92,7 @@ pub fn show_preferences(
         let _ = cfg.save();
 
         glib::Propagation::Proceed
-    });
+    }));
 
     prefs.present();
 }
