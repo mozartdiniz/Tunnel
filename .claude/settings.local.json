@@ -6,7 +6,11 @@
       "Bash(~/.cargo/bin/cargo check:*)",
       "Read(//usr/local/bin/**)",
       "Read(//Users/mozart/Library/Developer/**)",
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "Bash(find /Users/mozart/Dev/Tunnel -type f \\\\\\( -name \"*.py\" -o -name \"*.swift\" -o -name \"*.go\" -o -name \"*.rs\" -o -name \"*.js\" -o -name \"*.ts\" -o -name \"*.java\" -o -name \"*.cpp\" -o -name \"*.c\" -o -name \"*.h\" -o -name \"*.hpp\" \\\\\\) ! -path \"*/.build/*\" ! -path \"*/.git/*\" ! -path \"*/__pycache__/*\" ! -path \"*/.claude/*\" -exec wc -l {} +)",
+      "Bash(cargo build:*)",
+      "Bash(~/.cargo/bin/cargo --version)",
+      "Bash(wc:*)"
     ]
   }
 }
