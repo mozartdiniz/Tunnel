@@ -1,2 +1,0 @@
-DROP TABLE IF EXISTS library;
-DROP TABLE IF EXISTS sources;
