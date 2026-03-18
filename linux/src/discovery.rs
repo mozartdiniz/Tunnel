@@ -97,6 +97,11 @@ impl Discovery {
                             continue;
                         }
 
+                        // Ignore malformed announcements with suspiciously long aliases.
+                        if info.alias.len() > 256 {
+                            continue;
+                        }
+
                         let fp = info.fingerprint.clone();
                         let is_goodbye = info.announce == Some(false);
 

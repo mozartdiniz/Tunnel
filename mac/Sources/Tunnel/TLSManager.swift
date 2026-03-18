@@ -84,15 +84,20 @@ actor TLSManager {
 
     // MARK: - TOFU for outgoing URLSession connections (sender side)
 
-    /// Verify a peer's cert fingerprint using TOFU.
-    /// Returns true on first contact (and stores the fingerprint) or when the fingerprint matches.
-    /// Returns false on a TOFU violation (fingerprint changed).
-    func verifyCertFingerprint(_ fingerprint: String) -> Bool {
-        if let stored = knownPeers[fingerprint] {
-            return stored == fingerprint
+    /// Verify a peer's TLS certificate using TOFU.
+    ///
+    /// - Parameters:
+    ///   - peerFingerprint: The fingerprint the peer *announced* via UDP discovery (their identity).
+    ///   - actualCertFingerprint: The SHA-256 fingerprint of the TLS certificate they actually presented.
+    ///
+    /// On first contact the actual cert fingerprint is stored under the peer's announced identity.
+    /// On subsequent contacts the stored value must match — a different cert means TOFU violation.
+    func verifyPeerCert(peerFingerprint: String, actualCertFingerprint: String) -> Bool {
+        if let stored = knownPeers[peerFingerprint] {
+            return stored == actualCertFingerprint
         }
         // First contact — trust and remember.
-        knownPeers[fingerprint] = fingerprint
+        knownPeers[peerFingerprint] = actualCertFingerprint
         persistPeers()
         return true
     }

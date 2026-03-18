@@ -557,12 +557,17 @@ fn add_peer_row(
     // so multi-file and folder drops are sent as one transfer (roadmap 3.7).
     let drop = gtk4::DropTarget::new(gdk::FileList::static_type(), gdk::DragAction::COPY);
     let cmd_tx = cmd_tx.clone();
+    let peer_fp = id.to_string();
     drop.connect_drop(move |_, value, _, _| {
         if let Ok(file_list) = value.get::<gdk::FileList>() {
             let paths: Vec<std::path::PathBuf> =
                 file_list.files().iter().filter_map(|f| f.path()).collect();
             if !paths.is_empty() {
-                let _ = cmd_tx.send_blocking(AppCommand::SendFiles { peer_addr: addr, paths });
+                let _ = cmd_tx.send_blocking(AppCommand::SendFiles {
+                    peer_addr: addr,
+                    peer_fingerprint: peer_fp.clone(),
+                    paths,
+                });
             }
         }
         true

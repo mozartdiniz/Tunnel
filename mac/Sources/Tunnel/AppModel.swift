@@ -230,6 +230,15 @@ extension AppModel {
                 fileName: fileCount > 1 ? "\(firstName) + \(fileCount - 1) more" : firstName,
                 sizeBytes: totalBytes
             )
+            // Auto-deny after 60 seconds if the user doesn't respond.
+            Task { [weak self] in
+                try? await Task.sleep(for: .seconds(60))
+                guard let self else { return }
+                if let cont = self.pendingDecisions.removeValue(forKey: sessionId) {
+                    self.pendingRequest = nil
+                    cont.resume(returning: false)
+                }
+            }
         }
 
         pendingRequest = nil
@@ -267,6 +276,22 @@ extension AppModel {
               session.tokens[fileId] == token,
               let fileMeta = session.files[fileId] else {
             try await sendHTTPResponse(conn, status: 403, body: Data())
+            return
+        }
+
+        // Reject files that exceed the 10 GiB limit.
+        guard fileMeta.size <= maxFileSize else {
+            try await sendHTTPResponse(conn, status: 413, body: Data())
+            return
+        }
+
+        // Reject if insufficient disk space.
+        if let attrs = try? FileManager.default.attributesOfFileSystem(
+            forPath: session.downloadDir.path),
+           let free = attrs[.systemFreeSize] as? UInt64,
+           fileMeta.size > free
+        {
+            try await sendHTTPResponse(conn, status: 507, body: Data())
             return
         }
 
@@ -425,7 +450,9 @@ private func httpStatusText(_ code: Int) -> String {
     case 400: return "Bad Request"
     case 403: return "Forbidden"
     case 404: return "Not Found"
+    case 413: return "Content Too Large"
     case 500: return "Internal Server Error"
+    case 507: return "Insufficient Storage"
     default:  return "Unknown"
     }
 }

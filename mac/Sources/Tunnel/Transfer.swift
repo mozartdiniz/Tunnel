@@ -20,17 +20,18 @@ func sendFiles(
 ) async throws {
     let baseURL = "https://\(peer.host):\(peer.port)"
 
-    let delegate = TofuSessionDelegate(tlsManager: tlsManager)
+    let delegate = TofuSessionDelegate(tlsManager: tlsManager, peerFingerprint: peer.id)
     let session = URLSession(configuration: .ephemeral, delegate: delegate, delegateQueue: nil)
     defer { session.invalidateAndCancel() }
 
     // Build per-file metadata.
     struct FileEntry {
         let fileId: String
-        let url: URL
+        let data: Data
         let fileName: String
         let size: UInt64
         let fileType: String
+        let sha256: String
     }
 
     var entries: [FileEntry] = []
@@ -38,12 +39,15 @@ func sendFiles(
         let attrs = try FileManager.default.attributesOfItem(atPath: url.path)
         let size = (attrs[.size] as? UInt64) ?? 0
         guard size <= maxFileSize else { throw TransferError.fileTooLarge }
+        let data = try Data(contentsOf: url)
+        let sha256 = SHA256.hash(data: data).hexString
         entries.append(FileEntry(
             fileId: UUID().uuidString,
-            url: url,
+            data: data,
             fileName: url.lastPathComponent,
             size: size,
-            fileType: mimeType(for: url.pathExtension)
+            fileType: mimeType(for: url.pathExtension),
+            sha256: sha256
         ))
     }
 
@@ -51,7 +55,8 @@ func sendFiles(
 
     // 1. prepare-upload
     let filesMetadata = Dictionary(uniqueKeysWithValues: entries.map { e in
-        (e.fileId, FileMetadata(id: e.fileId, fileName: e.fileName, size: e.size, fileType: e.fileType))
+        (e.fileId, FileMetadata(id: e.fileId, fileName: e.fileName, size: e.size,
+                                fileType: e.fileType, sha256: e.sha256))
     })
 
     let prepareReq = PrepareUploadRequest(
@@ -97,8 +102,7 @@ func sendFiles(
         uploadReq.setValue("application/octet-stream", forHTTPHeaderField: "Content-Type")
         uploadReq.setValue(String(entry.size), forHTTPHeaderField: "Content-Length")
 
-        let fileData = try Data(contentsOf: entry.url)
-        let (_, uploadResp) = try await session.upload(for: uploadReq, from: fileData)
+        let (_, uploadResp) = try await session.upload(for: uploadReq, from: entry.data)
         guard let uploadHttp = uploadResp as? HTTPURLResponse, uploadHttp.statusCode == 200 else {
             throw TransferError.uploadFailed
         }
@@ -115,8 +119,12 @@ func sendFiles(
 /// First contact is trusted; subsequent contacts must match the stored fingerprint.
 final class TofuSessionDelegate: NSObject, URLSessionDelegate {
     private let tlsManager: TLSManager
+    private let peerFingerprint: String  // peer's announced identity from UDP discovery
 
-    init(tlsManager: TLSManager) { self.tlsManager = tlsManager }
+    init(tlsManager: TLSManager, peerFingerprint: String) {
+        self.tlsManager = tlsManager
+        self.peerFingerprint = peerFingerprint
+    }
 
     func urlSession(
         _ session: URLSession,
@@ -133,9 +141,13 @@ final class TofuSessionDelegate: NSObject, URLSessionDelegate {
             completionHandler(.cancelAuthenticationChallenge, nil)
             return
         }
-        let fingerprint = SHA256.hash(data: SecCertificateCopyData(cert) as Data).hexString
+        let actualCertFingerprint = SHA256.hash(data: SecCertificateCopyData(cert) as Data).hexString
+        let expectedPeerFp = peerFingerprint
         Task {
-            let allowed = await tlsManager.verifyCertFingerprint(fingerprint)
+            let allowed = await tlsManager.verifyPeerCert(
+                peerFingerprint: expectedPeerFp,
+                actualCertFingerprint: actualCertFingerprint
+            )
             completionHandler(
                 allowed ? .useCredential : .cancelAuthenticationChallenge,
                 allowed ? URLCredential(trust: trust) : nil

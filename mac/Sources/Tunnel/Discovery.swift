@@ -91,6 +91,8 @@ final class Discovery {
             let data = Data(buf[..<n])
             guard let info = try? JSONDecoder().decode(DeviceInfo.self, from: data) else { return }
             guard info.fingerprint != self.fingerprint else { return }
+            // Ignore malformed announcements with suspiciously long aliases.
+            guard info.alias.count <= 256 else { return }
 
             let fp = info.fingerprint
             let isGoodbye = info.announce == false

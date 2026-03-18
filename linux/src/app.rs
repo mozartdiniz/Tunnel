@@ -79,6 +79,8 @@ pub enum AppCommand {
     /// Send one or more files/folders to a peer. Directories are ZIP'd automatically.
     SendFiles {
         peer_addr: SocketAddr,
+        /// Peer's announced fingerprint from UDP discovery — used as TOFU key.
+        peer_fingerprint: String,
         paths: Vec<PathBuf>,
     },
     AcceptTransfer { transfer_id: String },
@@ -480,13 +482,15 @@ pub async fn run_network(
     // ── Command loop ─────────────────────────────────────────────────────────
     while let Ok(cmd) = cmd_rx.recv().await {
         match cmd {
-            AppCommand::SendFiles { peer_addr, paths } => {
+            AppCommand::SendFiles { peer_addr, peer_fingerprint, paths } => {
                 let tls = tls.clone();
                 let etx = event_tx.clone();
                 let name = device_name.read().await.clone();
                 let fp = fingerprint.clone();
                 tokio::spawn(async move {
-                    if let Err(e) = send_files(peer_addr, paths, name, fp, tls, etx).await {
+                    if let Err(e) =
+                        send_files(peer_addr, paths, name, fp, peer_fingerprint, tls, etx).await
+                    {
                         tracing::error!("Send error: {e:#}");
                     }
                 });

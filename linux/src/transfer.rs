@@ -16,6 +16,7 @@ use std::time::Instant;
 
 use anyhow::{bail, Result};
 use futures::StreamExt;
+use sha2::{Digest, Sha256};
 use tokio_util::io::ReaderStream;
 
 use crate::app::AppEvent;
@@ -40,12 +41,14 @@ pub async fn send_files(
     paths: Vec<PathBuf>,
     sender_name: String,
     sender_fingerprint: String,
+    /// The peer's announced fingerprint from UDP discovery — used as the TOFU key.
+    peer_fingerprint: String,
     tls: Arc<TlsStack>,
     event_tx: async_channel::Sender<AppEvent>,
 ) -> Result<()> {
     let transfer_id = uuid::Uuid::new_v4().to_string();
     let result =
-        try_send_files(&transfer_id, peer_addr, paths, sender_name, sender_fingerprint, tls, &event_tx).await;
+        try_send_files(&transfer_id, peer_addr, paths, sender_name, sender_fingerprint, peer_fingerprint, tls, &event_tx).await;
     if let Err(ref e) = result {
         let _ = event_tx
             .send(AppEvent::TransferError {
@@ -63,6 +66,7 @@ async fn try_send_files(
     paths: Vec<PathBuf>,
     sender_name: String,
     sender_fingerprint: String,
+    peer_fingerprint: String,
     tls: Arc<TlsStack>,
     event_tx: &async_channel::Sender<AppEvent>,
 ) -> Result<()> {
@@ -74,6 +78,7 @@ async fn try_send_files(
         display_name: String,
         size_bytes: u64,
         file_type: String,
+        sha256: Option<String>,
         _temp: Option<tempfile::NamedTempFile>,
     }
 
@@ -93,6 +98,7 @@ async fn try_send_files(
                 display_name: zip_name,
                 size_bytes: size,
                 file_type: "application/zip".to_string(),
+                sha256: None,
                 _temp: Some(tmp),
             }
         } else {
@@ -108,11 +114,17 @@ async fn try_send_files(
                 .and_then(|n| n.to_str())
                 .unwrap_or("file")
                 .to_string();
+            // Compute SHA-256 so the receiver can verify integrity.
+            let sha256 = {
+                let bytes = tokio::fs::read(path).await?;
+                hex::encode(Sha256::digest(&bytes))
+            };
             FileEntry {
                 source_path: path.clone(),
                 display_name: name,
                 size_bytes: size,
                 file_type: mime_guess(&path.extension().and_then(|e| e.to_str()).unwrap_or("")),
+                sha256: Some(sha256),
                 _temp: None,
             }
         };
@@ -122,7 +134,7 @@ async fn try_send_files(
     let total_bytes: u64 = entries.iter().map(|(_, e)| e.size_bytes).sum();
 
     let client = reqwest::Client::builder()
-        .use_preconfigured_tls(tls.client_config())
+        .use_preconfigured_tls(tls.client_config_for_peer(&peer_fingerprint))
         .build()?;
 
     let base_url = format!("https://{}:{}", peer_addr.ip(), peer_addr.port());
@@ -138,7 +150,7 @@ async fn try_send_files(
                     file_name: e.display_name.clone(),
                     size: e.size_bytes,
                     file_type: e.file_type.clone(),
-                    sha256: None,
+                    sha256: e.sha256.clone(),
                     preview: None,
                 },
             )

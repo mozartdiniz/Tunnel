@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(swift build:*)",
+      "Bash(cargo check:*)",
+      "Bash(~/.cargo/bin/cargo check:*)",
+      "Read(//usr/local/bin/**)",
+      "Read(//Users/mozart/Library/Developer/**)"
+    ]
+  }
+}
