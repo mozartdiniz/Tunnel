@@ -19,6 +19,7 @@ final class Discovery {
     private var recvSocket: Int32 = -1
     private var dispatchSource: DispatchSourceRead?
     private var expiryTimer: Timer?
+    private var heartbeatTimer: Timer?
     private var peerLastSeen: [String: Date] = [:]
     private let queue = DispatchQueue(label: "dev.tunnel.discovery", qos: .utility)
 
@@ -135,6 +136,14 @@ final class Discovery {
         }
         RunLoop.main.add(timer, forMode: .common)
         expiryTimer = timer
+
+        // Heartbeat: re-announce every 10 seconds so remote peers don't expire us.
+        let heartbeatInfo = buildInfo(alias: alias, port: port, announce: true)
+        let heartbeat = Timer(timeInterval: 10, repeats: true) { [weak self] _ in
+            self?.sendToMulticast(heartbeatInfo)
+        }
+        RunLoop.main.add(heartbeat, forMode: .common)
+        heartbeatTimer = heartbeat
     }
 
     // MARK: - Stop
@@ -144,6 +153,8 @@ final class Discovery {
         dispatchSource = nil
         expiryTimer?.invalidate()
         expiryTimer = nil
+        heartbeatTimer?.invalidate()
+        heartbeatTimer = nil
         if recvSocket >= 0 {
             close(recvSocket)
             recvSocket = -1

@@ -63,6 +63,8 @@ impl Discovery {
         let multicast_ip: Ipv4Addr = MULTICAST_ADDR.parse().unwrap();
         // None = "I'm here, responding" — distinct from Some(false) which means goodbye.
         let own_info = self.build_info(&alias, port, None);
+        // Heartbeat: re-announce every 10 s so remote peers don't expire us.
+        let heartbeat_info = self.build_info(&alias, port, Some(true));
 
         // Bind to 0.0.0.0:53317 with SO_REUSEPORT so multiple processes can coexist.
         let std_socket = Socket::new(Domain::IPV4, Type::DGRAM, Some(Protocol::UDP))?;
@@ -77,6 +79,10 @@ impl Discovery {
             let mut buf = vec![0u8; 4096];
             // Re-check for expired peers every 10 seconds.
             let mut expiry_tick = tokio::time::interval(Duration::from_secs(10));
+            // Re-announce every 10 seconds so remote peers don't expire us.
+            let mut heartbeat_tick = tokio::time::interval(Duration::from_secs(10));
+            heartbeat_tick.reset(); // skip the immediate first tick — advertise() already ran
+            let heartbeat_payload = serde_json::to_vec(&heartbeat_info).unwrap_or_default();
 
             loop {
                 tokio::select! {
@@ -134,6 +140,15 @@ impl Discovery {
                             tracing::info!("LocalSend: peer timed out: {fp}");
                             let _ = tx.send(DiscoveryEvent::PeerLost { fingerprint: fp }).await;
                         }
+                    }
+
+                    _ = heartbeat_tick.tick() => {
+                        let payload = heartbeat_payload.clone();
+                        let dest = format!("{MULTICAST_ADDR}:{LOCALSEND_PORT}");
+                        let sock = socket.clone();
+                        tokio::spawn(async move {
+                            let _ = sock.send_to(&payload, dest).await;
+                        });
                     }
                 }
             }
