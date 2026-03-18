@@ -78,21 +78,25 @@ pub fn show_preferences(
         );
     }));
 
-    prefs.connect_close_request(glib::clone!(@weak name_row, @default-return glib::Propagation::Proceed => move |_| {
-        let new_name = name_row.text().to_string();
-        let mut cfg = config.borrow_mut();
+    prefs.connect_close_request(glib::clone!(
+        #[weak] name_row,
+        #[upgrade_or] glib::Propagation::Proceed,
+        move |_| {
+            let new_name = name_row.text().to_string();
+            let mut cfg = config.borrow_mut();
 
-        if !new_name.is_empty() && new_name != cfg.device_name {
-            cfg.device_name = new_name.clone();
-            window_title.set_subtitle(&new_name);
-            let _ = cmd_tx.send_blocking(AppCommand::SetDeviceName(new_name));
+            if !new_name.is_empty() && new_name != cfg.device_name {
+                cfg.device_name = new_name.clone();
+                window_title.set_subtitle(&new_name);
+                let _ = cmd_tx.send_blocking(AppCommand::SetDeviceName(new_name));
+            }
+
+            let _ = cmd_tx.send_blocking(AppCommand::SetDownloadDir(cfg.download_dir.clone()));
+            let _ = cfg.save();
+
+            glib::Propagation::Proceed
         }
-
-        let _ = cmd_tx.send_blocking(AppCommand::SetDownloadDir(cfg.download_dir.clone()));
-        let _ = cfg.save();
-
-        glib::Propagation::Proceed
-    }));
+    ));
 
     prefs.present();
 }
