@@ -1,106 +1,115 @@
 import Foundation
 
-// Wire protocol matching the Linux Rust implementation exactly.
-// Messages are length-prefixed JSON: 4-byte big-endian length + JSON payload.
-// Enum tag field is "type" with SCREAMING_SNAKE_CASE values.
+// MARK: - LocalSend v2 open protocol constants
 
-let protocolVersion: UInt8 = 1
-let maxMessageSize = 1024 * 1024  // 1 MB
+let localsendPort: UInt16 = 53317
+let multicastAddress = "224.0.0.167"
 
-enum TunnelMessage: Codable {
-    case ask(version: UInt8, transferId: String, senderName: String, fileName: String, sizeBytes: UInt64)
-    case response(version: UInt8, status: ResponseStatus)
-    case done(checksumSha256: String)
+// MARK: - Device descriptor
 
-    enum MessageType: String, Codable {
-        case ask     = "ASK"
-        case response = "RESPONSE"
-        case done    = "DONE"
-    }
+/// Matches the LocalSend v2 wire format (camelCase JSON keys).
+/// `protocol` is a Swift keyword, so we map it via CodingKeys.
+/// Optional fields are omitted from JSON when nil (not sent as null).
+struct DeviceInfo: Codable {
+    var alias: String
+    var version: String
+    var deviceModel: String?
+    var deviceType: String?
+    var fingerprint: String
+    var port: UInt16
+    var protocolScheme: String
+    var download: Bool
+    var announce: Bool?
 
     enum CodingKeys: String, CodingKey {
-        case type
-        case version
-        case transferId  = "transfer_id"
-        case senderName  = "sender_name"
-        case fileName    = "file_name"
-        case sizeBytes   = "size_bytes"
-        case status
-        case checksumSha256 = "checksum_sha256"
+        case alias, version, deviceModel, deviceType, fingerprint, port
+        case protocolScheme = "protocol"
+        case download, announce
+    }
+
+    init(alias: String, version: String, deviceModel: String? = nil, deviceType: String? = nil,
+         fingerprint: String, port: UInt16, protocolScheme: String, download: Bool, announce: Bool? = nil) {
+        self.alias = alias; self.version = version; self.deviceModel = deviceModel
+        self.deviceType = deviceType; self.fingerprint = fingerprint; self.port = port
+        self.protocolScheme = protocolScheme; self.download = download; self.announce = announce
     }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        let type_ = try c.decode(MessageType.self, forKey: .type)
-        switch type_ {
-        case .ask:
-            self = .ask(
-                version: try c.decode(UInt8.self, forKey: .version),
-                transferId: try c.decode(String.self, forKey: .transferId),
-                senderName: try c.decode(String.self, forKey: .senderName),
-                fileName: try c.decode(String.self, forKey: .fileName),
-                sizeBytes: try c.decode(UInt64.self, forKey: .sizeBytes)
-            )
-        case .response:
-            self = .response(
-                version: try c.decode(UInt8.self, forKey: .version),
-                status: try c.decode(ResponseStatus.self, forKey: .status)
-            )
-        case .done:
-            self = .done(checksumSha256: try c.decode(String.self, forKey: .checksumSha256))
-        }
+        alias        = try c.decode(String.self, forKey: .alias)
+        version      = try c.decode(String.self, forKey: .version)
+        deviceModel  = try c.decodeIfPresent(String.self, forKey: .deviceModel)
+        deviceType   = try c.decodeIfPresent(String.self, forKey: .deviceType)
+        fingerprint  = try c.decode(String.self, forKey: .fingerprint)
+        port         = try c.decode(UInt16.self, forKey: .port)
+        protocolScheme = try c.decode(String.self, forKey: .protocolScheme)
+        download     = try c.decode(Bool.self, forKey: .download)
+        announce     = try c.decodeIfPresent(Bool.self, forKey: .announce)
     }
 
     func encode(to encoder: Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
-        switch self {
-        case .ask(let version, let transferId, let senderName, let fileName, let sizeBytes):
-            try c.encode(MessageType.ask, forKey: .type)
-            try c.encode(version, forKey: .version)
-            try c.encode(transferId, forKey: .transferId)
-            try c.encode(senderName, forKey: .senderName)
-            try c.encode(fileName, forKey: .fileName)
-            try c.encode(sizeBytes, forKey: .sizeBytes)
-        case .response(let version, let status):
-            try c.encode(MessageType.response, forKey: .type)
-            try c.encode(version, forKey: .version)
-            try c.encode(status, forKey: .status)
-        case .done(let checksum):
-            try c.encode(MessageType.done, forKey: .type)
-            try c.encode(checksum, forKey: .checksumSha256)
-        }
+        try c.encode(alias,          forKey: .alias)
+        try c.encode(version,        forKey: .version)
+        try c.encodeIfPresent(deviceModel, forKey: .deviceModel)
+        try c.encodeIfPresent(deviceType,  forKey: .deviceType)
+        try c.encode(fingerprint,    forKey: .fingerprint)
+        try c.encode(port,           forKey: .port)
+        try c.encode(protocolScheme, forKey: .protocolScheme)
+        try c.encode(download,       forKey: .download)
+        try c.encodeIfPresent(announce, forKey: .announce)
     }
 }
 
-enum ResponseStatus: String, Codable {
-    case accepted    = "ACCEPTED"
-    case denied      = "DENIED"
-    case checksumOk  = "CHECKSUM_OK"
-    case checksumFail = "CHECKSUM_FAIL"
+// MARK: - File metadata
+
+struct FileMetadata: Codable {
+    var id: String
+    var fileName: String
+    var size: UInt64
+    var fileType: String
+    var sha256: String?
+    var preview: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id, fileName, size, fileType, sha256, preview
+    }
+
+    init(id: String, fileName: String, size: UInt64, fileType: String,
+         sha256: String? = nil, preview: String? = nil) {
+        self.id = id; self.fileName = fileName; self.size = size
+        self.fileType = fileType; self.sha256 = sha256; self.preview = preview
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id       = try c.decode(String.self,  forKey: .id)
+        fileName = try c.decode(String.self,  forKey: .fileName)
+        size     = try c.decode(UInt64.self,  forKey: .size)
+        fileType = try c.decode(String.self,  forKey: .fileType)
+        sha256   = try c.decodeIfPresent(String.self, forKey: .sha256)
+        preview  = try c.decodeIfPresent(String.self, forKey: .preview)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id,       forKey: .id)
+        try c.encode(fileName, forKey: .fileName)
+        try c.encode(size,     forKey: .size)
+        try c.encode(fileType, forKey: .fileType)
+        try c.encodeIfPresent(sha256,   forKey: .sha256)
+        try c.encodeIfPresent(preview,  forKey: .preview)
+    }
 }
 
-// MARK: - Frame read/write helpers
+// MARK: - Prepare-upload request / response
 
-enum ProtocolError: Error {
-    case messageTooLarge(Int)
-    case connectionClosed
-    case unexpectedMessage(String)
+struct PrepareUploadRequest: Codable {
+    var info: DeviceInfo
+    var files: [String: FileMetadata]  // fileId → FileMetadata
 }
 
-/// Encode a message to length-prefixed JSON bytes.
-func encodeMessage(_ msg: TunnelMessage) throws -> Data {
-    let json = try JSONEncoder().encode(msg)
-    var length = UInt32(json.count).bigEndian
-    var frame = Data(bytes: &length, count: 4)
-    frame.append(json)
-    return frame
-}
-
-/// Decode a message from a 4-byte length prefix + JSON payload.
-func decodeMessage(from data: Data) throws -> TunnelMessage {
-    guard data.count >= 4 else { throw ProtocolError.connectionClosed }
-    let length = Int(UInt32(bigEndian: data.subdata(in: 0..<4).withUnsafeBytes { $0.load(as: UInt32.self) }))
-    guard length <= maxMessageSize else { throw ProtocolError.messageTooLarge(length) }
-    guard data.count >= 4 + length else { throw ProtocolError.connectionClosed }
-    return try JSONDecoder().decode(TunnelMessage.self, from: data.subdata(in: 4..<(4 + length)))
+struct PrepareUploadResponse: Codable {
+    var sessionId: String
+    var files: [String: String]        // fileId → upload token
 }

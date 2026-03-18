@@ -1,152 +1,146 @@
 import Foundation
-import Network
 import CryptoKit
 
-private let chunkSize = 64 * 1024  // 64 KiB
+let maxFileSize: UInt64 = 10 * 1024 * 1024 * 1024  // 10 GiB
 
-// MARK: - Outgoing
+// MARK: - Send
 
-/// Send a file to a peer. Returns when the transfer is complete.
-func sendFile(
-    to endpoint: NWEndpoint,
-    fileURL: URL,
-    senderName: String,
-    parameters: NWParameters,
+/// Send one or more files to a LocalSend v2 peer.
+///
+/// Flow:
+///   1. POST /api/localsend/v2/prepare-upload  — offer file list, wait for accept.
+///   2. POST /api/localsend/v2/upload          — upload each file's bytes.
+func sendFiles(
+    to peer: Peer,
+    fileURLs: [URL],
+    senderAlias: String,
+    senderFingerprint: String,
+    tlsManager: TLSManager,
     progress: @escaping (Double) -> Void
 ) async throws {
-    let conn = NWConnection(to: endpoint, using: parameters)
-    try await connect(conn)
-    defer { conn.cancel() }
+    let baseURL = "https://\(peer.host):\(peer.port)"
 
-    // Compute size and checksum upfront
-    let fileData = try Data(contentsOf: fileURL)
-    let sizeBytes = UInt64(fileData.count)
-    let checksum = SHA256.hash(data: fileData).hexString
-    let fileName = fileURL.lastPathComponent
-    let transferId = UUID().uuidString
+    let delegate = TofuSessionDelegate(tlsManager: tlsManager)
+    let session = URLSession(configuration: .ephemeral, delegate: delegate, delegateQueue: nil)
+    defer { session.invalidateAndCancel() }
 
-    // Send ASK
-    let ask = TunnelMessage.ask(
-        version: protocolVersion,
-        transferId: transferId,
-        senderName: senderName,
-        fileName: fileName,
-        sizeBytes: sizeBytes
+    // Build per-file metadata.
+    struct FileEntry {
+        let fileId: String
+        let url: URL
+        let fileName: String
+        let size: UInt64
+        let fileType: String
+    }
+
+    var entries: [FileEntry] = []
+    for url in fileURLs {
+        let attrs = try FileManager.default.attributesOfItem(atPath: url.path)
+        let size = (attrs[.size] as? UInt64) ?? 0
+        guard size <= maxFileSize else { throw TransferError.fileTooLarge }
+        entries.append(FileEntry(
+            fileId: UUID().uuidString,
+            url: url,
+            fileName: url.lastPathComponent,
+            size: size,
+            fileType: mimeType(for: url.pathExtension)
+        ))
+    }
+
+    let totalBytes = entries.reduce(UInt64(0)) { $0 + $1.size }
+
+    // 1. prepare-upload
+    let filesMetadata = Dictionary(uniqueKeysWithValues: entries.map { e in
+        (e.fileId, FileMetadata(id: e.fileId, fileName: e.fileName, size: e.size, fileType: e.fileType))
+    })
+
+    let prepareReq = PrepareUploadRequest(
+        info: DeviceInfo(
+            alias: senderAlias,
+            version: "2.0",
+            deviceModel: "Mac",
+            deviceType: "desktop",
+            fingerprint: senderFingerprint,
+            port: localsendPort,
+            protocolScheme: "https",
+            download: false
+        ),
+        files: filesMetadata
     )
-    try await send(conn, data: encodeMessage(ask))
 
-    // Wait for RESPONSE
-    let responseData = try await receiveMessage(conn)
-    guard case .response(_, let status) = responseData, status == .accepted else {
-        if case .response(_, let s) = responseData, s == .denied {
-            throw TransferError.denied
+    var req = URLRequest(url: URL(string: "\(baseURL)/api/localsend/v2/prepare-upload")!)
+    req.httpMethod = "POST"
+    req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+    req.httpBody = try JSONEncoder().encode(prepareReq)
+
+    let (prepareData, prepareResponse) = try await session.data(for: req)
+    guard let http = prepareResponse as? HTTPURLResponse else { throw TransferError.unexpectedResponse }
+    if http.statusCode == 403 { throw TransferError.denied }
+    guard http.statusCode == 200 else { throw TransferError.unexpectedResponse }
+
+    let prepareResp = try JSONDecoder().decode(PrepareUploadResponse.self, from: prepareData)
+
+    // 2. Upload each file.
+    var bytesDone = UInt64(0)
+    for entry in entries {
+        guard let token = prepareResp.files[entry.fileId] else { throw TransferError.unexpectedResponse }
+
+        var components = URLComponents(string: "\(baseURL)/api/localsend/v2/upload")!
+        components.queryItems = [
+            URLQueryItem(name: "sessionId", value: prepareResp.sessionId),
+            URLQueryItem(name: "fileId",    value: entry.fileId),
+            URLQueryItem(name: "token",     value: token),
+        ]
+
+        var uploadReq = URLRequest(url: components.url!)
+        uploadReq.httpMethod = "POST"
+        uploadReq.setValue("application/octet-stream", forHTTPHeaderField: "Content-Type")
+        uploadReq.setValue(String(entry.size), forHTTPHeaderField: "Content-Length")
+
+        let fileData = try Data(contentsOf: entry.url)
+        let (_, uploadResp) = try await session.upload(for: uploadReq, from: fileData)
+        guard let uploadHttp = uploadResp as? HTTPURLResponse, uploadHttp.statusCode == 200 else {
+            throw TransferError.uploadFailed
         }
-        throw TransferError.unexpectedMessage
-    }
 
-    // Stream file bytes in chunks
-    var sent = 0
-    while sent < fileData.count {
-        let end = min(sent + chunkSize, fileData.count)
-        let chunk = fileData[sent..<end]
-        try await send(conn, data: Data(chunk))
-        sent = end
-        progress(Double(sent) / Double(fileData.count))
-    }
-
-    // Send DONE with checksum
-    let done = TunnelMessage.done(checksumSha256: checksum)
-    try await send(conn, data: encodeMessage(done))
-
-    // Wait for ACK
-    let ackData = try await receiveMessage(conn)
-    guard case .response(_, let ackStatus) = ackData else {
-        throw TransferError.unexpectedMessage
-    }
-    if ackStatus == .checksumFail {
-        throw TransferError.checksumMismatch
+        bytesDone += entry.size
+        let pct = totalBytes > 0 ? Double(bytesDone) / Double(totalBytes) : 1.0
+        progress(pct)
     }
 }
 
-// MARK: - Incoming
+// MARK: - TOFU URLSession delegate
 
-struct IncomingTransferRequest {
-    let transferId: String
-    let senderName: String
-    let fileName: String
-    let sizeBytes: UInt64
-}
+/// Verifies the receiver's self-signed cert using TOFU keyed by SHA-256 fingerprint.
+/// First contact is trusted; subsequent contacts must match the stored fingerprint.
+final class TofuSessionDelegate: NSObject, URLSessionDelegate {
+    private let tlsManager: TLSManager
 
-/// Handle an incoming connection: read the ASK, return the request details.
-/// After user decision, call `completeReceive`.
-func readIncomingAsk(conn: NWConnection) async throws -> IncomingTransferRequest {
-    try await connect(conn)
-    let msg = try await receiveMessage(conn)
-    guard case .ask(_, let transferId, let senderName, let fileName, let sizeBytes) = msg else {
-        conn.cancel()
-        throw TransferError.unexpectedMessage
-    }
-    return IncomingTransferRequest(
-        transferId: transferId,
-        senderName: senderName,
-        fileName: fileName,
-        sizeBytes: sizeBytes
-    )
-}
+    init(tlsManager: TLSManager) { self.tlsManager = tlsManager }
 
-/// After user accepts/denies, complete the receive side of the transfer.
-func completeReceive(
-    conn: NWConnection,
-    request: IncomingTransferRequest,
-    accepted: Bool,
-    downloadDir: URL,
-    progress: @escaping (Double) -> Void
-) async throws -> URL? {
-    defer { conn.cancel() }
-
-    // Send RESPONSE
-    let status: ResponseStatus = accepted ? .accepted : .denied
-    let response = TunnelMessage.response(version: protocolVersion, status: status)
-    try await send(conn, data: encodeMessage(response))
-
-    guard accepted else { return nil }
-
-    // Receive file bytes
-    let safeName = sanitizeFilename(request.fileName)
-    let destURL = downloadDir.appendingPathComponent(safeName)
-
-    var received = Data()
-    received.reserveCapacity(Int(request.sizeBytes))
-    var hasher = SHA256()
-
-    while received.count < Int(request.sizeBytes) {
-        let remaining = Int(request.sizeBytes) - received.count
-        let toRead = min(chunkSize, remaining)
-        let chunk = try await receiveExact(conn, count: toRead)
-        received.append(chunk)
-        hasher.update(data: chunk)
-        progress(Double(received.count) / Double(request.sizeBytes))
-    }
-
-    // Read DONE message
-    let doneMsg = try await receiveMessage(conn)
-    guard case .done(let expectedChecksum) = doneMsg else {
-        throw TransferError.unexpectedMessage
-    }
-
-    let actualChecksum = hasher.finalize().hexString
-    let checksumOk = actualChecksum == expectedChecksum
-
-    // Send checksum ACK
-    let ackStatus: ResponseStatus = checksumOk ? .checksumOk : .checksumFail
-    let ack = TunnelMessage.response(version: protocolVersion, status: ackStatus)
-    try await send(conn, data: encodeMessage(ack))
-
-    if checksumOk {
-        try received.write(to: destURL)
-        return destURL
-    } else {
-        throw TransferError.checksumMismatch
+    func urlSession(
+        _ session: URLSession,
+        didReceive challenge: URLAuthenticationChallenge,
+        completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void
+    ) {
+        guard challenge.protectionSpace.authenticationMethod == NSURLAuthenticationMethodServerTrust,
+              let trust = challenge.protectionSpace.serverTrust else {
+            completionHandler(.cancelAuthenticationChallenge, nil)
+            return
+        }
+        guard let chain = SecTrustCopyCertificateChain(trust) as? [SecCertificate],
+              let cert = chain.first else {
+            completionHandler(.cancelAuthenticationChallenge, nil)
+            return
+        }
+        let fingerprint = SHA256.hash(data: SecCertificateCopyData(cert) as Data).hexString
+        Task {
+            let allowed = await tlsManager.verifyCertFingerprint(fingerprint)
+            completionHandler(
+                allowed ? .useCredential : .cancelAuthenticationChallenge,
+                allowed ? URLCredential(trust: trust) : nil
+            )
+        }
     }
 }
 
@@ -154,111 +148,47 @@ func completeReceive(
 
 enum TransferError: Error, LocalizedError {
     case denied
-    case checksumMismatch
-    case unexpectedMessage
+    case fileTooLarge
+    case unexpectedResponse
+    case uploadFailed
     case connectionFailed(Error)
-    case timeout
 
     var errorDescription: String? {
         switch self {
-        case .denied:            return "Peer denied the transfer"
-        case .checksumMismatch:  return "File checksum mismatch — transfer may be corrupted"
-        case .unexpectedMessage: return "Unexpected protocol message"
+        case .denied:              return "Peer denied the transfer"
+        case .fileTooLarge:        return "File exceeds the 10 GiB limit"
+        case .unexpectedResponse:  return "Unexpected response from peer"
+        case .uploadFailed:        return "File upload failed"
         case .connectionFailed(let e): return "Connection failed: \(e.localizedDescription)"
-        case .timeout:           return "Transfer timed out"
         }
     }
 }
 
-// MARK: - NWConnection async helpers
+// MARK: - Helpers
 
-private func connect(_ conn: NWConnection) async throws {
-    try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Void, Error>) in
-        var resumed = false
-        conn.stateUpdateHandler = { state in
-            guard !resumed else { return }
-            switch state {
-            case .ready:
-                resumed = true
-                cont.resume()
-            case .failed(let err):
-                resumed = true
-                cont.resume(throwing: TransferError.connectionFailed(err))
-            case .cancelled:
-                resumed = true
-                cont.resume(throwing: CancellationError())
-            default: break
-            }
-        }
-        conn.start(queue: DispatchQueue.global(qos: .userInitiated))
-    }
-}
-
-private func send(_ conn: NWConnection, data: Data) async throws {
-    try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Void, Error>) in
-        conn.send(content: data, completion: .contentProcessed { error in
-            if let error = error {
-                cont.resume(throwing: error)
-            } else {
-                cont.resume()
-            }
-        })
-    }
-}
-
-/// Receive bytes (up to maxLength), returning whatever arrives.
-private func receiveChunk(_ conn: NWConnection, maxLength: Int) async throws -> Data {
-    try await withCheckedThrowingContinuation { cont in
-        conn.receive(minimumIncompleteLength: 1, maximumLength: maxLength) { data, _, _, error in
-            if let error = error {
-                cont.resume(throwing: error)
-            } else if let data = data, !data.isEmpty {
-                cont.resume(returning: data)
-            } else {
-                cont.resume(throwing: ProtocolError.connectionClosed)
-            }
-        }
-    }
-}
-
-/// Receive exactly `count` bytes, looping as needed.
-private func receiveExact(_ conn: NWConnection, count: Int) async throws -> Data {
-    var buffer = Data()
-    while buffer.count < count {
-        let chunk = try await receiveChunk(conn, maxLength: count - buffer.count)
-        buffer.append(chunk)
-    }
-    return buffer
-}
-
-/// Read a 4-byte length-prefixed JSON message from the connection.
-private func receiveMessage(_ conn: NWConnection) async throws -> TunnelMessage {
-    let lengthBytes = try await receiveExact(conn, count: 4)
-    let length = Int(UInt32(bigEndian: lengthBytes.withUnsafeBytes { $0.load(as: UInt32.self) }))
-    guard length <= maxMessageSize else { throw ProtocolError.messageTooLarge(length) }
-    let payload = try await receiveExact(conn, count: length)
-    return try JSONDecoder().decode(TunnelMessage.self, from: payload)
-}
-
-// MARK: - Filename sanitization
-
-private func sanitizeFilename(_ name: String) -> String {
+func sanitizeFilename(_ name: String) -> String {
     let sanitized = name.unicodeScalars
         .map { "/\\:*?\"<>|".unicodeScalars.contains($0) ? Character("_") : Character($0) }
         .map(String.init)
         .joined()
-    // Reject reserved path components that could escape the download directory.
-    if sanitized == ".." || sanitized == "." {
-        return "file"
-    }
-    return sanitized
+    return (sanitized == ".." || sanitized == ".") ? "file" : sanitized
 }
 
-// MARK: - SHA256 hex helper
+private func mimeType(for ext: String) -> String {
+    switch ext.lowercased() {
+    case "jpg", "jpeg": return "image/jpeg"
+    case "png":   return "image/png"
+    case "gif":   return "image/gif"
+    case "webp":  return "image/webp"
+    case "pdf":   return "application/pdf"
+    case "zip":   return "application/zip"
+    case "mp4":   return "video/mp4"
+    case "mp3":   return "audio/mpeg"
+    case "txt":   return "text/plain"
+    default:      return "application/octet-stream"
+    }
+}
 
 private extension SHA256Digest {
-    var hexString: String {
-        map { String(format: "%02x", $0) }.joined()
-    }
+    var hexString: String { map { String(format: "%02x", $0) }.joined() }
 }
-

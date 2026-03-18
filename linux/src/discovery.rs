@@ -61,7 +61,8 @@ impl Discovery {
         let (tx, rx) = mpsc::channel(32);
         let own_fingerprint = self.fingerprint.clone();
         let multicast_ip: Ipv4Addr = MULTICAST_ADDR.parse().unwrap();
-        let own_info = self.build_info(&alias, port, Some(false));
+        // None = "I'm here, responding" — distinct from Some(false) which means goodbye.
+        let own_info = self.build_info(&alias, port, None);
 
         // Bind to 0.0.0.0:53317 with SO_REUSEPORT so multiple processes can coexist.
         let std_socket = Socket::new(Domain::IPV4, Type::DGRAM, Some(Protocol::UDP))?;

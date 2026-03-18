@@ -217,9 +217,3 @@ struct IncomingRequestSheet: View {
     }
 }
 
-// MARK: - Preview
-
-#Preview {
-    ContentView()
-        .environmentObject(AppModel())
-}

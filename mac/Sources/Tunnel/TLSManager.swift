@@ -9,13 +9,15 @@ import SwiftASN1
 
 /// Manages the local TLS identity (self-signed cert) and TOFU peer verification.
 ///
-/// Identity strategy: generate cert+key with swift-certificates, bundle as PKCS12 via
-/// `/usr/bin/openssl`, then import with `SecPKCS12Import` which works in unsigned apps
-/// (it uses the login keychain path, not the data-protection keychain that requires entitlements).
+/// LocalSend v2 uses one-way HTTPS:
+///   - The receiver (server) presents a self-signed cert.
+///   - The sender (client) TOFU-verifies the cert fingerprint via URLSessionDelegate.
+///   - No mutual TLS — the client does NOT present a certificate.
 actor TLSManager {
 
     private let identity: SecIdentity
-    private var knownPeers: [String: String]  // peer-key -> SHA-256 fingerprint hex
+    private(set) var localFingerprint: String
+    private var knownPeers: [String: String]  // fingerprint → fingerprint (TOFU store)
     private let peersFileURL: URL
 
     // MARK: - Bootstrap
@@ -24,15 +26,17 @@ actor TLSManager {
         let dir = Config.dataDir()
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
 
-        let p12URL    = dir.appendingPathComponent("identity.p12")
+        let p12URL     = dir.appendingPathComponent("identity.p12")
         let certDERURL = dir.appendingPathComponent("cert.der")
-        let peersURL  = dir.appendingPathComponent("known_peers.json")
+        let peersURL   = dir.appendingPathComponent("known_peers.json")
 
         let identity: SecIdentity
+        let fingerprint: String
         if FileManager.default.fileExists(atPath: p12URL.path) {
             identity = try importP12(at: p12URL)
+            fingerprint = Self.fingerprintOf(identity)
         } else {
-            identity = try generateAndSave(
+            (identity, fingerprint) = try generateAndSave(
                 deviceName: config.deviceName,
                 p12URL: p12URL,
                 certDERURL: certDERURL
@@ -47,26 +51,22 @@ actor TLSManager {
             knownPeers = [:]
         }
 
-        return TLSManager(identity: identity, knownPeers: knownPeers, peersFileURL: peersURL)
+        return TLSManager(identity: identity, fingerprint: fingerprint,
+                          knownPeers: knownPeers, peersFileURL: peersURL)
     }
 
-    private init(identity: SecIdentity, knownPeers: [String: String], peersFileURL: URL) {
+    private init(identity: SecIdentity, fingerprint: String,
+                 knownPeers: [String: String], peersFileURL: URL) {
         self.identity = identity
+        self.localFingerprint = fingerprint
         self.knownPeers = knownPeers
         self.peersFileURL = peersFileURL
     }
 
-    // MARK: - NWParameters
+    // MARK: - NWParameters (HTTPS server / receiver side)
 
+    /// Parameters for NWListener: server presents cert, no client cert required (one-way TLS).
     func listenerParameters() -> NWParameters {
-        makeParameters(isServer: true)
-    }
-
-    func connectionParameters() -> NWParameters {
-        makeParameters(isServer: false)
-    }
-
-    private func makeParameters(isServer: Bool) -> NWParameters {
         let tlsOptions = NWProtocolTLS.Options()
         let capturedIdentity = identity
 
@@ -74,64 +74,34 @@ actor TLSManager {
             tlsOptions.securityProtocolOptions,
             sec_identity_create(capturedIdentity)!
         )
-
-        // Server: require the peer (client) to present a certificate.
-        // Client: disable system hostname/chain validation — we use TOFU instead.
+        // One-way TLS: do NOT require the connecting client to present a certificate.
         sec_protocol_options_set_peer_authentication_required(
-            tlsOptions.securityProtocolOptions, isServer
-        )
-
-        // Both sides verify the peer's cert using TOFU fingerprint matching.
-        sec_protocol_options_set_verify_block(
-            tlsOptions.securityProtocolOptions,
-            { [weak self] metadata, trust, complete in
-                guard let self else { complete(false); return }
-                Task { complete(await self.verifyPeer(metadata: metadata, trust: trust)) }
-            },
-            DispatchQueue.global()
+            tlsOptions.securityProtocolOptions, false
         )
 
         return NWParameters(tls: tlsOptions, tcp: NWProtocolTCP.Options())
     }
 
-    // MARK: - TOFU
+    // MARK: - TOFU for outgoing URLSession connections (sender side)
 
-    private func verifyPeer(metadata: sec_protocol_metadata_t, trust: sec_trust_t) async -> Bool {
-        var chain: [SecCertificate] = []
-        sec_protocol_metadata_access_peer_certificate_chain(metadata) { secCert in
-            chain.append(sec_certificate_copy_ref(secCert).takeRetainedValue())
+    /// Verify a peer's cert fingerprint using TOFU.
+    /// Returns true on first contact (and stores the fingerprint) or when the fingerprint matches.
+    /// Returns false on a TOFU violation (fingerprint changed).
+    func verifyCertFingerprint(_ fingerprint: String) -> Bool {
+        if let stored = knownPeers[fingerprint] {
+            return stored == fingerprint
         }
-        guard let leaf = chain.first else { return false }
-
-        let fingerprint = SHA256.hash(data: SecCertificateCopyData(leaf) as Data).hexString
-        let key = peerKey(from: metadata)
-
-        if let stored = knownPeers[key] {
-            return stored == fingerprint      // mismatch = TOFU violation, reject
-        } else {
-            knownPeers[key] = fingerprint
-            persistPeers()
-            return true
-        }
+        // First contact — trust and remember.
+        knownPeers[fingerprint] = fingerprint
+        persistPeers()
+        return true
     }
 
-    private func peerKey(from metadata: sec_protocol_metadata_t) -> String {
-        if let sn = sec_protocol_metadata_get_server_name(metadata) {
-            return String(cString: sn)
-        }
-        return "unknown"
-    }
+    // MARK: - Persistence
 
     private func persistPeers() {
         guard let data = try? JSONEncoder().encode(knownPeers) else { return }
         try? data.write(to: peersFileURL)
-    }
-
-    func localFingerprint() -> String {
-        var certRef: SecCertificate?
-        SecIdentityCopyCertificate(identity, &certRef)
-        guard let cert = certRef else { return "unknown" }
-        return SHA256.hash(data: SecCertificateCopyData(cert) as Data).hexString
     }
 
     // MARK: - Generation
@@ -140,7 +110,7 @@ actor TLSManager {
         deviceName: String,
         p12URL: URL,
         certDERURL: URL
-    ) throws -> SecIdentity {
+    ) throws -> (SecIdentity, String) {
         // 1. Generate P-256 key + self-signed cert
         let privateKey = P256.Signing.PrivateKey()
         let swiftKey   = try Certificate.PrivateKey(privateKey)
@@ -156,7 +126,6 @@ actor TLSManager {
             signatureAlgorithm: .ecdsaWithSHA256,
             extensions: try Certificate.Extensions {
                 SubjectAlternativeNames([.dnsName(deviceName), .dnsName("localhost")])
-                // Required for TLS server and client use
                 try ExtendedKeyUsage([.serverAuth, .clientAuth])
                 KeyUsage(digitalSignature: true)
             },
@@ -169,7 +138,7 @@ actor TLSManager {
         let certDER = Data(s.serializedBytes)
         try certDER.write(to: certDERURL)
 
-        // 3. Write temp PEM files for openssl pkcs12 bundling
+        // 3. Write temp PEM files and bundle as PKCS12 via openssl
         let tmp = FileManager.default.temporaryDirectory
             .appendingPathComponent("tunnel-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
@@ -187,32 +156,26 @@ actor TLSManager {
         try "-----BEGIN PRIVATE KEY-----\n\(b64Key)\n-----END PRIVATE KEY-----\n"
             .write(to: keyPEM, atomically: true, encoding: .utf8)
 
-        // 4. Bundle as PKCS12 using the system openssl (LibreSSL, always present on macOS)
         try runOpenSSL([
             "pkcs12", "-export",
-            "-in",  certPEM.path,
+            "-in",    certPEM.path,
             "-inkey", keyPEM.path,
-            "-out", p12URL.path,
+            "-out",   p12URL.path,
             "-passout", "pass:\(p12Password)"
         ])
 
-        return try importP12(at: p12URL)
+        let secIdentity = try importP12(at: p12URL)
+        let fp = fingerprintOf(secIdentity)
+        return (secIdentity, fp)
     }
 
     // MARK: - P12 import
 
     private static let p12Password = "tunnel-p12-internal-v1"
 
-    /// Import a PKCS12 file and return the SecIdentity.
-    /// We create an unrestricted SecAccess so the TLS stack can sign with the private key
-    /// without triggering a "allow access" keychain confirmation dialog. Without this,
-    /// the server-side TLS handshake silently fails because the key is blocked mid-handshake.
     private static func importP12(at url: URL) throws -> SecIdentity {
         let data = try Data(contentsOf: url)
 
-        // Empty (non-nil) trusted-applications list = any process may use this key without
-        // prompting. nil would default to "calling app only", which blocks the Security
-        // framework's XPC service that does the actual TLS signing on the server side.
         var accessRef: SecAccess?
         SecAccessCreate("Tunnel TLS Identity" as CFString, [] as CFArray, &accessRef)
 
@@ -229,6 +192,15 @@ actor TLSManager {
               let ref = first[kSecImportItemIdentity as String]
         else { throw TLSError.keychainError(status) }
         return ref as! SecIdentity
+    }
+
+    // MARK: - Fingerprint helpers
+
+    private static func fingerprintOf(_ identity: SecIdentity) -> String {
+        var certRef: SecCertificate?
+        SecIdentityCopyCertificate(identity, &certRef)
+        guard let cert = certRef else { return "unknown" }
+        return SHA256.hash(data: SecCertificateCopyData(cert) as Data).hexString
     }
 
     // MARK: - openssl helper
