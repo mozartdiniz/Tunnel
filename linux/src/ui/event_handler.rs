@@ -98,7 +98,7 @@ pub fn handle_event(
             progress_bar.set_fraction(1.0);
             let pb = progress_bar.clone();
             let sd = status_dot.clone();
-            send_complete_notification(&saved_to);
+            send_complete_notification(saved_to.as_deref());
             glib::timeout_add_local_once(std::time::Duration::from_millis(1200), move || {
                 pb.set_visible(false);
                 pb.set_fraction(0.0);

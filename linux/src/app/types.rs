@@ -37,8 +37,9 @@ pub enum AppEvent {
     },
     TransferComplete {
         transfer_id: String,
-        /// Saved file path (single file) or download directory (multi-file).
-        saved_to: PathBuf,
+        /// Download directory on the receiver side; `None` on the sender side
+        /// (the sender doesn't save files locally).
+        saved_to: Option<PathBuf>,
     },
     TransferError {
         transfer_id: String,

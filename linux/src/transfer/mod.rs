@@ -22,6 +22,7 @@ use std::time::Instant;
 use anyhow::{bail, Result};
 use futures::StreamExt;
 use sha2::{Digest, Sha256};
+use tokio::io::AsyncReadExt;
 use tokio_util::io::ReaderStream;
 
 use crate::app::AppEvent;
@@ -34,33 +35,39 @@ use crate::tls::TlsStack;
 use helpers::{mime_guess, CHUNK_SIZE};
 use zip::zip_directory;
 
-/// Send one or more files/directories to `peer_addr`.
+/// Parameters for an outgoing file transfer.
+pub struct SendRequest {
+    pub peer_addr: SocketAddr,
+    /// Peer's announced fingerprint from UDP discovery — used as TOFU key.
+    pub peer_fingerprint: String,
+    pub paths: Vec<PathBuf>,
+    pub sender_name: String,
+    pub sender_fingerprint: String,
+}
+
+/// Metadata and on-disk location for a single file to be sent.
+struct FileEntry {
+    source_path: PathBuf,
+    display_name: String,
+    size_bytes: u64,
+    file_type: String,
+    sha256: Option<String>,
+    /// Kept alive to prevent the temp file from being deleted until we finish sending.
+    _temp: Option<tempfile::NamedTempFile>,
+}
+
+/// Send one or more files/directories to `req.peer_addr`.
 ///
 /// Directories are ZIP-compressed into a temp file before transfer.
 /// All paths are sent in a single `prepare-upload` → N × `upload` round trip.
 /// Emits `TransferProgress`, `TransferComplete`, and `TransferError` events.
 pub async fn send_files(
-    peer_addr: SocketAddr,
-    paths: Vec<PathBuf>,
-    sender_name: String,
-    sender_fingerprint: String,
-    /// The peer's announced fingerprint from UDP discovery — used as the TOFU key.
-    peer_fingerprint: String,
+    req: SendRequest,
     tls: Arc<TlsStack>,
     event_tx: async_channel::Sender<AppEvent>,
 ) -> Result<()> {
     let transfer_id = uuid::Uuid::new_v4().to_string();
-    let result = try_send_files(
-        &transfer_id,
-        peer_addr,
-        paths,
-        sender_name,
-        sender_fingerprint,
-        peer_fingerprint,
-        tls,
-        &event_tx,
-    )
-    .await;
+    let result = try_send_files(&transfer_id, req, tls, &event_tx).await;
     if let Err(ref e) = result {
         let _ = event_tx
             .send(AppEvent::TransferError {
@@ -74,28 +81,15 @@ pub async fn send_files(
 
 async fn try_send_files(
     transfer_id: &str,
-    peer_addr: SocketAddr,
-    paths: Vec<PathBuf>,
-    sender_name: String,
-    sender_fingerprint: String,
-    peer_fingerprint: String,
+    req: SendRequest,
     tls: Arc<TlsStack>,
     event_tx: &async_channel::Sender<AppEvent>,
 ) -> Result<()> {
     let _inhibit = InhibitGuard::acquire("Sending files").await;
 
     // ── Prepare file list (zip directories) ──────────────────────────────────
-    struct FileEntry {
-        source_path: PathBuf,
-        display_name: String,
-        size_bytes: u64,
-        file_type: String,
-        sha256: Option<String>,
-        _temp: Option<tempfile::NamedTempFile>,
-    }
-
-    let mut entries: Vec<(String, FileEntry)> = Vec::with_capacity(paths.len());
-    for path in &paths {
+    let mut entries: Vec<(String, FileEntry)> = Vec::with_capacity(req.paths.len());
+    for path in &req.paths {
         let file_id = uuid::Uuid::new_v4().to_string();
         let entry = if path.is_dir() {
             let dir_name = path
@@ -126,10 +120,19 @@ async fn try_send_files(
                 .and_then(|n| n.to_str())
                 .unwrap_or("file")
                 .to_string();
-            // Compute SHA-256 so the receiver can verify integrity.
+            // Stream SHA-256 to avoid loading the entire file into memory.
             let sha256 = {
-                let bytes = tokio::fs::read(path).await?;
-                hex::encode(Sha256::digest(&bytes))
+                let mut file = tokio::fs::File::open(path).await?;
+                let mut hasher = Sha256::new();
+                let mut buf = vec![0u8; CHUNK_SIZE];
+                loop {
+                    let n = file.read(&mut buf).await?;
+                    if n == 0 {
+                        break;
+                    }
+                    hasher.update(&buf[..n]);
+                }
+                hex::encode(hasher.finalize())
             };
             FileEntry {
                 source_path: path.clone(),
@@ -146,10 +149,10 @@ async fn try_send_files(
     let total_bytes: u64 = entries.iter().map(|(_, e)| e.size_bytes).sum();
 
     let client = reqwest::Client::builder()
-        .use_preconfigured_tls(tls.client_config_for_peer(&peer_fingerprint))
+        .use_preconfigured_tls(tls.client_config_for_peer(&req.peer_fingerprint))
         .build()?;
 
-    let base_url = format!("https://{}:{}", peer_addr.ip(), peer_addr.port());
+    let base_url = format!("https://{}:{}", req.peer_addr.ip(), req.peer_addr.port());
 
     // ── 1. prepare-upload ────────────────────────────────────────────────────
     let files_meta: HashMap<String, FileMetadata> = entries
@@ -171,11 +174,11 @@ async fn try_send_files(
 
     let prepare_req = PrepareUploadRequest {
         info: DeviceInfo {
-            alias: sender_name.clone(),
+            alias: req.sender_name.clone(),
             version: "2.0".to_string(),
             device_model: Some("PC".to_string()),
             device_type: Some("desktop".to_string()),
-            fingerprint: sender_fingerprint,
+            fingerprint: req.sender_fingerprint,
             port: LOCALSEND_PORT,
             protocol: "https".to_string(),
             download: false,
@@ -259,15 +262,11 @@ async fn try_send_files(
         tracing::info!("Uploaded '{}' ✓", entry.display_name);
     }
 
-    let saved_to = entries
-        .first()
-        .map(|(_, e)| e.source_path.clone())
-        .unwrap_or_default();
-
+    // Sender side: files were not saved locally, so saved_to is None.
     let _ = event_tx
         .send(AppEvent::TransferComplete {
             transfer_id: transfer_id.to_string(),
-            saved_to,
+            saved_to: None,
         })
         .await;
 

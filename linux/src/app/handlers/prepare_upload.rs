@@ -12,6 +12,8 @@ use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 
+const DECISION_TIMEOUT_SECS: u64 = 60;
+
 use crate::app::state::{AppState, SessionState};
 use crate::app::types::AppEvent;
 use crate::inhibit::InhibitGuard;
@@ -59,8 +61,8 @@ pub async fn handler_prepare_upload(
         })
         .await;
 
-    // Await user decision with a 60-second timeout.
-    let accepted = match tokio::time::timeout(Duration::from_secs(60), decision_rx).await {
+    // Await user decision with a timeout.
+    let accepted = match tokio::time::timeout(Duration::from_secs(DECISION_TIMEOUT_SECS), decision_rx).await {
         Ok(Ok(v)) => v,
         _ => {
             // Timeout or channel closed — clean up the stale pending entry.

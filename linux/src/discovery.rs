@@ -17,6 +17,9 @@ use tokio::sync::mpsc;
 
 use crate::localsend::{DeviceInfo, LOCALSEND_PORT, MULTICAST_ADDR};
 
+const HEARTBEAT_INTERVAL_SECS: u64 = 10;
+const PEER_EXPIRY_SECS: u64 = 30;
+
 /// Events yielded by the browse task.
 pub enum DiscoveryEvent {
     PeerFound { fingerprint: String, alias: String, addr: IpAddr, port: u16 },
@@ -33,8 +36,7 @@ impl Discovery {
     }
 
     /// Send a UDP multicast announcement so other devices can discover us.
-    /// Returns our own fingerprint (used by app.rs for self-filtering).
-    pub async fn advertise(&self, alias: &str, port: u16) -> Result<String> {
+    pub async fn advertise(&self, alias: &str, port: u16) -> Result<()> {
         let info = self.build_info(alias, port, Some(true));
         let payload = serde_json::to_vec(&info)?;
 
@@ -42,7 +44,7 @@ impl Discovery {
         socket.send_to(&payload, format!("{MULTICAST_ADDR}:{LOCALSEND_PORT}")).await?;
 
         tracing::info!("LocalSend: announced '{alias}' on port {port}");
-        Ok(self.fingerprint.clone())
+        Ok(())
     }
 
     /// Send a UDP multicast goodbye packet (announce=false).
@@ -77,10 +79,10 @@ impl Discovery {
         tokio::spawn(async move {
             let mut peer_last_seen: HashMap<String, Instant> = HashMap::new();
             let mut buf = vec![0u8; 4096];
-            // Re-check for expired peers every 10 seconds.
-            let mut expiry_tick = tokio::time::interval(Duration::from_secs(10));
-            // Re-announce every 10 seconds so remote peers don't expire us.
-            let mut heartbeat_tick = tokio::time::interval(Duration::from_secs(10));
+            // Re-check for expired peers every HEARTBEAT_INTERVAL_SECS seconds.
+            let mut expiry_tick = tokio::time::interval(Duration::from_secs(HEARTBEAT_INTERVAL_SECS));
+            // Re-announce so remote peers don't expire us.
+            let mut heartbeat_tick = tokio::time::interval(Duration::from_secs(HEARTBEAT_INTERVAL_SECS));
             heartbeat_tick.reset(); // skip the immediate first tick — advertise() already ran
             let heartbeat_payload = serde_json::to_vec(&heartbeat_info).unwrap_or_default();
 
@@ -137,7 +139,7 @@ impl Discovery {
                     _ = expiry_tick.tick() => {
                         let expired: Vec<String> = peer_last_seen
                             .iter()
-                            .filter(|(_, t)| t.elapsed() > Duration::from_secs(30))
+                            .filter(|(_, t)| t.elapsed() > Duration::from_secs(PEER_EXPIRY_SECS))
                             .map(|(k, _)| k.clone())
                             .collect();
                         for fp in expired {

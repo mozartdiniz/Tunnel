@@ -3,6 +3,7 @@
 /// Streams one file's bytes to disk, verifies SHA-256 if provided, atomically
 /// renames to the final path. Sends `TransferComplete` only after the last file
 /// in the session has been received.
+use std::path::Path;
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
 
@@ -13,8 +14,9 @@ use futures::StreamExt;
 use sha2::{Digest, Sha256};
 use tokio::io::{AsyncWriteExt, BufWriter};
 
-use crate::app::state::AppState;
+use crate::app::state::{AppState, SessionState};
 use crate::app::types::AppEvent;
+use crate::localsend::FileMetadata;
 use crate::transfer::{sanitize_filename, speed_eta, MAX_FILE_SIZE};
 
 #[derive(serde::Deserialize)]
@@ -31,7 +33,7 @@ pub async fn handler_upload(
     Query(params): Query<UploadParams>,
     request: axum::extract::Request,
 ) -> axum::response::Response {
-    // Look up session and validate token.
+    // ── Validation phase — no temp file created yet ───────────────────────────
     let session = {
         let sessions = state.sessions.lock().await;
         sessions.get(&params.session_id).cloned()
@@ -39,8 +41,7 @@ pub async fn handler_upload(
     let Some(session) = session else {
         return StatusCode::NOT_FOUND.into_response();
     };
-    let expected_token = session.tokens.get(&params.file_id);
-    if expected_token.map(String::as_str) != Some(params.token.as_str()) {
+    if session.tokens.get(&params.file_id).map(String::as_str) != Some(params.token.as_str()) {
         return StatusCode::FORBIDDEN.into_response();
     }
     let Some(file_meta) = session.files.get(&params.file_id).cloned() else {
@@ -58,39 +59,55 @@ pub async fn handler_upload(
         }
     }
 
+    // ── Write phase — temp file is created; single cleanup site on error ──────
     let safe_name = sanitize_filename(&file_meta.file_name);
     let dest_path = session.download_dir.join(&safe_name);
     let temp_path = session
         .download_dir
         .join(format!(".{}.{}.tmp", params.session_id, params.file_id));
 
-    let dest_file = match tokio::fs::File::create(&temp_path).await {
-        Ok(f) => f,
-        Err(e) => {
-            tracing::error!("Failed to create temp file: {e}");
-            return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+    match receive_to_disk(&state, &params, request, &session, &file_meta, &temp_path, &dest_path)
+        .await
+    {
+        Ok(response) => response,
+        Err(response) => {
+            let _ = tokio::fs::remove_file(&temp_path).await;
+            response
         }
-    };
+    }
+}
+
+/// Streams the request body to `temp_path`, verifies checksum, then atomically
+/// renames to `dest_path`. Returns `Err(response)` on any failure so the caller
+/// can clean up the temp file in one place.
+async fn receive_to_disk(
+    state: &Arc<AppState>,
+    params: &UploadParams,
+    request: axum::extract::Request,
+    session: &SessionState,
+    file_meta: &FileMetadata,
+    temp_path: &Path,
+    dest_path: &Path,
+) -> Result<axum::response::Response, axum::response::Response> {
+    let dest_file = tokio::fs::File::create(temp_path).await.map_err(|e| {
+        tracing::error!("Failed to create temp file: {e}");
+        StatusCode::INTERNAL_SERVER_ERROR.into_response()
+    })?;
     let mut writer = BufWriter::new(dest_file);
     let mut hasher = Sha256::new();
 
     // Stream request body, write chunks to disk, track overall session progress.
     let mut body_stream = request.into_body().into_data_stream();
     while let Some(chunk) = body_stream.next().await {
-        let chunk = match chunk {
-            Ok(c) => c,
-            Err(e) => {
-                tracing::error!("Body stream error: {e}");
-                let _ = tokio::fs::remove_file(&temp_path).await;
-                return StatusCode::BAD_REQUEST.into_response();
-            }
-        };
+        let chunk = chunk.map_err(|e| {
+            tracing::error!("Body stream error: {e}");
+            StatusCode::BAD_REQUEST.into_response()
+        })?;
         hasher.update(&chunk);
-        if let Err(e) = writer.write_all(&chunk).await {
+        writer.write_all(&chunk).await.map_err(|e| {
             tracing::error!("Write error: {e}");
-            let _ = tokio::fs::remove_file(&temp_path).await;
-            return StatusCode::INTERNAL_SERVER_ERROR.into_response();
-        }
+            StatusCode::INTERNAL_SERVER_ERROR.into_response()
+        })?;
 
         // Update shared session progress counters and emit event.
         let total_received =
@@ -106,18 +123,16 @@ pub async fn handler_upload(
         });
     }
 
-    if let Err(e) = writer.flush().await {
+    writer.flush().await.map_err(|e| {
         tracing::error!("Flush error: {e}");
-        let _ = tokio::fs::remove_file(&temp_path).await;
-        return StatusCode::INTERNAL_SERVER_ERROR.into_response();
-    }
+        StatusCode::INTERNAL_SERVER_ERROR.into_response()
+    })?;
 
     // Verify SHA-256 if the sender provided it.
     let computed = hex::encode(hasher.finalize());
     if let Some(expected_sha) = &file_meta.sha256 {
         if &computed != expected_sha {
             tracing::error!("Checksum mismatch: expected {expected_sha}, got {computed}");
-            let _ = tokio::fs::remove_file(&temp_path).await;
             let _ = state
                 .event_tx
                 .send(AppEvent::TransferError {
@@ -125,16 +140,15 @@ pub async fn handler_upload(
                     message: "Checksum mismatch — transfer discarded".into(),
                 })
                 .await;
-            return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+            return Err(StatusCode::INTERNAL_SERVER_ERROR.into_response());
         }
     }
 
     // Atomic rename to final destination.
-    if let Err(e) = tokio::fs::rename(&temp_path, &dest_path).await {
+    tokio::fs::rename(temp_path, dest_path).await.map_err(|e| {
         tracing::error!("Rename failed: {e}");
-        let _ = tokio::fs::remove_file(&temp_path).await;
-        return StatusCode::INTERNAL_SERVER_ERROR.into_response();
-    }
+        StatusCode::INTERNAL_SERVER_ERROR.into_response()
+    })?;
 
     tracing::info!("Received '{}' → '{}'", file_meta.file_name, dest_path.display());
 
@@ -147,10 +161,10 @@ pub async fn handler_upload(
             .event_tx
             .send(AppEvent::TransferComplete {
                 transfer_id: params.session_id.clone(),
-                saved_to: session.download_dir.clone(),
+                saved_to: Some(session.download_dir.clone()),
             })
             .await;
     }
 
-    StatusCode::OK.into_response()
+    Ok(StatusCode::OK.into_response())
 }

@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use gtk4::gio;
 use gtk4::prelude::*;
 
@@ -37,29 +39,30 @@ pub fn send_incoming_notification(
     app.send_notification(Some(transfer_id), &n);
 }
 
-pub fn send_complete_notification(saved_to: &std::path::PathBuf) {
+/// Show a transfer-complete notification.
+///
+/// `saved_to` is `Some(path)` on the receiver side and `None` on the sender
+/// side. When `None`, the notification confirms the send without an "Open
+/// folder" button.
+pub fn send_complete_notification(saved_to: Option<&Path>) {
     let Some(app) = gio::Application::default() else { return };
 
-    let label = if saved_to.is_dir() {
-        saved_to
-            .file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or("Downloads")
-            .to_string()
-    } else {
-        saved_to
-            .file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or("Downloads")
-            .to_string()
-    };
-
     let n = gio::Notification::new("Transfer complete");
-    n.set_body(Some(&format!("Saved to {label}")));
-    n.add_button_with_target_value(
-        "Open folder",
-        "app.reveal-file",
-        Some(&saved_to.to_string_lossy().to_variant()),
-    );
+
+    if let Some(path) = saved_to {
+        let label = path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("Downloads");
+        n.set_body(Some(&format!("Saved to {label}")));
+        n.add_button_with_target_value(
+            "Open folder",
+            "app.reveal-file",
+            Some(&path.to_string_lossy().to_variant()),
+        );
+    } else {
+        n.set_body(Some("All files sent successfully"));
+    }
+
     app.send_notification(None, &n);
 }

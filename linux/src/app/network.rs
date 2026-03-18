@@ -4,17 +4,46 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 use anyhow::Result;
-use tokio::sync::{Mutex, RwLock};
+use tokio::sync::{Mutex, RwLock, mpsc};
 
 use crate::config::Config;
 use crate::discovery::{Discovery, DiscoveryEvent};
 use crate::localsend::LOCALSEND_PORT;
 use crate::tls::TlsStack;
-use crate::transfer::send_files;
+use crate::transfer::{send_files, SendRequest};
 
 use super::handlers::{handler_cancel, handler_device_info, handler_prepare_upload, handler_upload};
 use super::state::AppState;
 use super::types::{AppCommand, AppEvent, PendingMap};
+
+/// Spawn a task that forwards `DiscoveryEvent`s from the browse channel to the UI event channel.
+/// Returns an abort handle so the task can be cancelled on refresh.
+fn spawn_browse_loop(
+    mut rx: mpsc::Receiver<DiscoveryEvent>,
+    event_tx: async_channel::Sender<AppEvent>,
+) -> tokio::task::AbortHandle {
+    tokio::spawn(async move {
+        while let Some(ev) = rx.recv().await {
+            match ev {
+                DiscoveryEvent::PeerFound { fingerprint, alias, addr, port } => {
+                    let _ = event_tx
+                        .send(AppEvent::PeerFound {
+                            id: fingerprint,
+                            name: alias,
+                            addr: SocketAddr::new(addr, port),
+                        })
+                        .await;
+                }
+                DiscoveryEvent::PeerLost { fingerprint } => {
+                    let _ = event_tx
+                        .send(AppEvent::PeerLost { id: fingerprint })
+                        .await;
+                }
+            }
+        }
+    })
+    .abort_handle()
+}
 
 pub async fn run_network(
     mut config: Config,
@@ -72,32 +101,11 @@ pub async fn run_network(
     let discovery = Discovery::new(fingerprint.clone());
     discovery.advertise(&config.device_name, LOCALSEND_PORT).await?;
 
-    let mut browse_rx = discovery
+    let browse_rx = discovery
         .browse(config.device_name.clone(), LOCALSEND_PORT)
         .await?;
 
-    let event_tx_disc = event_tx.clone();
-    let browse_handle = tokio::spawn(async move {
-        while let Some(ev) = browse_rx.recv().await {
-            match ev {
-                DiscoveryEvent::PeerFound { fingerprint, alias, addr, port } => {
-                    let _ = event_tx_disc
-                        .send(AppEvent::PeerFound {
-                            id: fingerprint,
-                            name: alias,
-                            addr: SocketAddr::new(addr, port),
-                        })
-                        .await;
-                }
-                DiscoveryEvent::PeerLost { fingerprint } => {
-                    let _ = event_tx_disc
-                        .send(AppEvent::PeerLost { id: fingerprint })
-                        .await;
-                }
-            }
-        }
-    });
-    let mut browse_abort = browse_handle.abort_handle();
+    let mut browse_abort = spawn_browse_loop(browse_rx, event_tx.clone());
 
     // ── Command loop ─────────────────────────────────────────────────────────
     while let Ok(cmd) = cmd_rx.recv().await {
@@ -105,12 +113,15 @@ pub async fn run_network(
             AppCommand::SendFiles { peer_addr, peer_fingerprint, paths } => {
                 let tls = tls.clone();
                 let etx = event_tx.clone();
-                let name = device_name.read().await.clone();
-                let fp = fingerprint.clone();
+                let req = SendRequest {
+                    peer_addr,
+                    paths,
+                    sender_name: device_name.read().await.clone(),
+                    sender_fingerprint: fingerprint.clone(),
+                    peer_fingerprint,
+                };
                 tokio::spawn(async move {
-                    if let Err(e) =
-                        send_files(peer_addr, paths, name, fp, peer_fingerprint, tls, etx).await
-                    {
+                    if let Err(e) = send_files(req, tls, etx).await {
                         tracing::error!("Send error: {e:#}");
                     }
                 });
@@ -151,34 +162,7 @@ pub async fn run_network(
                 }
                 match discovery.browse(name, LOCALSEND_PORT).await {
                     Ok(rx) => {
-                        let mut new_rx = rx;
-                        let etx = event_tx.clone();
-                        let new_handle = tokio::spawn(async move {
-                            while let Some(ev) = new_rx.recv().await {
-                                match ev {
-                                    DiscoveryEvent::PeerFound {
-                                        fingerprint,
-                                        alias,
-                                        addr,
-                                        port,
-                                    } => {
-                                        let _ = etx
-                                            .send(AppEvent::PeerFound {
-                                                id: fingerprint,
-                                                name: alias,
-                                                addr: SocketAddr::new(addr, port),
-                                            })
-                                            .await;
-                                    }
-                                    DiscoveryEvent::PeerLost { fingerprint } => {
-                                        let _ = etx
-                                            .send(AppEvent::PeerLost { id: fingerprint })
-                                            .await;
-                                    }
-                                }
-                            }
-                        });
-                        browse_abort = new_handle.abort_handle();
+                        browse_abort = spawn_browse_loop(rx, event_tx.clone());
                         tracing::info!("Peer discovery restarted");
                     }
                     Err(e) => tracing::error!("Failed to restart browse: {e}"),

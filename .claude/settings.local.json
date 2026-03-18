@@ -10,7 +10,10 @@
       "Bash(find /Users/mozart/Dev/Tunnel -type f \\\\\\( -name \"*.py\" -o -name \"*.swift\" -o -name \"*.go\" -o -name \"*.rs\" -o -name \"*.js\" -o -name \"*.ts\" -o -name \"*.java\" -o -name \"*.cpp\" -o -name \"*.c\" -o -name \"*.h\" -o -name \"*.hpp\" \\\\\\) ! -path \"*/.build/*\" ! -path \"*/.git/*\" ! -path \"*/__pycache__/*\" ! -path \"*/.claude/*\" -exec wc -l {} +)",
       "Bash(cargo build:*)",
       "Bash(~/.cargo/bin/cargo --version)",
-      "Bash(wc:*)"
+      "Bash(wc:*)",
+      "Bash(export PATH=\"$HOME/.cargo/bin:$PATH\")",
+      "Read(//Users/mozart/.cargo/**)",
+      "Read(//opt/**)"
     ]
   }
 }
