@@ -3,7 +3,7 @@
   <gresource prefix="/dev/tunnel/Tunnel">
     <file>style.css</file>
     <file preprocess="xml-stripblanks">window.ui</file>
-    <file preprocess="xml-stripblanks">icons/scalable/radar-symbolic.svg</file>
-    <file preprocess="xml-stripblanks">icons/scalable/radar-dots-symbolic.svg</file>
+    <file preprocess="xml-stripblanks" alias="icons/scalable/actions/radar-symbolic.svg">icons/scalable/radar-symbolic.svg</file>
+    <file preprocess="xml-stripblanks" alias="icons/scalable/actions/radar-dots-symbolic.svg">icons/scalable/radar-dots-symbolic.svg</file>
   </gresource>
 </gresources>
