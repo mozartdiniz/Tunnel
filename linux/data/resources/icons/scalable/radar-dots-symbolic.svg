@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <ellipse fill="currentColor" cx="8.0822411" cy="7.1159482" rx="1.0468786" ry="1.0354694" />
-  <ellipse fill="currentColor" cx="16.324141" cy="28.071087" rx="1.0468786" ry="1.0354694" />
-  <ellipse fill="currentColor" cx="20.719206" cy="18.4004" rx="1.0468786" ry="1.0354694" />
+  <ellipse fill="#000000" cx="8.0822411" cy="7.1159482" rx="1.0468786" ry="1.0354694" />
+  <ellipse fill="#000000" cx="16.324141" cy="28.071087" rx="1.0468786" ry="1.0354694" />
+  <ellipse fill="#000000" cx="20.719206" cy="18.4004" rx="1.0468786" ry="1.0354694" />
 </svg>
