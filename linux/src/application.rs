@@ -38,13 +38,6 @@ mod imp {
         fn startup(&self) {
             self.parent_startup();
 
-            // Register GResource icons with the icon theme so icon-name lookups
-            // (e.g. "radar-symbolic") resolve to our bundled SVGs.
-            if let Some(display) = gtk4::gdk::Display::default() {
-                gtk4::IconTheme::for_display(&display)
-                    .add_resource_path("/dev/tunnel/Tunnel");
-            }
-
             let config = Config::load().unwrap_or_default();
             let (event_tx, event_rx) = async_channel::unbounded::<AppEvent>();
             let (cmd_tx, cmd_rx) = async_channel::unbounded::<AppCommand>();
