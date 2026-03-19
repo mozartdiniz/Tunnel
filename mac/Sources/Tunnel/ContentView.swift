@@ -68,20 +68,38 @@ struct ContentView: View {
         }
     }
 
+    @State private var spinnerRotation: Double = 0
+
     private var emptyState: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "wifi.slash")
-                .font(.system(size: 40))
-                .foregroundStyle(.secondary)
-            Text("No devices found")
+        VStack(spacing: 16) {
+            searchSpinnerImage
+                .rotationEffect(.degrees(spinnerRotation))
+                .onAppear {
+                    withAnimation(.linear(duration: 3).repeatForever(autoreverses: false)) {
+                        spinnerRotation = 360
+                    }
+                }
+            Text("Searching…")
                 .font(.title3)
                 .foregroundStyle(.secondary)
-            Text("Make sure other devices running Tunnel\nare on the same network.")
+            Text("Looking for devices on your network")
                 .font(.caption)
-                .multilineTextAlignment(.center)
                 .foregroundStyle(.tertiary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var searchSpinnerImage: AnyView {
+        if let url = Bundle.module.url(forResource: "search-spinner", withExtension: "svg"),
+           let image = NSImage(contentsOf: url) {
+            return AnyView(Image(nsImage: image)
+                .resizable()
+                .frame(width: 80, height: 80))
+        }
+        return AnyView(Image(systemName: "magnifyingglass")
+            .font(.system(size: 40))
+            .foregroundStyle(.secondary)
+            .frame(width: 80, height: 80))
     }
 
     // MARK: Status Bar

@@ -13,7 +13,8 @@ let package = Package(
             dependencies: [
                 .product(name: "X509", package: "swift-certificates"),
             ],
-            path: "Sources/Tunnel"
+            path: "Sources/Tunnel",
+            resources: [.process("Resources")]
         )
     ]
 )
