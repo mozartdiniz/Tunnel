@@ -15,11 +15,10 @@ Reviewed 2026-03-19. Overall: ~75% ready.
   homepage = "https://github.com/mozartdiniz/Tunnel"
   ```
 - [ ] **Write a real README.md** — currently just `# Tunnel` (1 line). Needs: description, screenshots, build instructions for Linux/Mac/Windows, and basic usage guide
-- [ ] **Fix security vulnerabilities documented in `SECURITY_AUDIT.md`** — these are real attack vectors that will get flagged immediately when the project goes public:
-  - **Sender impersonation:** receiver never verifies sender certificate — attacker can impersonate any device
-  - **No file size limits:** DoS via unbounded upload
-  - **Path traversal:** `..` and `.` not rejected as filenames
-  - **Checksum verified after write:** file written to disk before integrity is confirmed — should checksum before writing or roll back on failure
+- [ ] **Document sender impersonation limitation** in the UI or README — the only remaining security finding from `SECURITY_AUDIT.md`. This is a known protocol-level limitation of LocalSend v2 (no mutual TLS); the sender alias shown in the confirmation dialog is self-reported and unverified. The other three original vulnerabilities have been fixed:
+  - ~~No file size limits~~ ✅ Fixed — 10 GiB hard limit enforced in upload handler
+  - ~~Path traversal filenames~~ ✅ Fixed — `..` and `.` sanitized to `file`
+  - ~~Checksum verified after write~~ ✅ Fixed — SHA-256 streamed and verified before atomic rename
 - [ ] **Add screenshots** to `linux/data/dev.tunnel.Tunnel.metainfo.xml.in` (also needed for Flathub — see DISTRIBUTION.md)
 
 ---

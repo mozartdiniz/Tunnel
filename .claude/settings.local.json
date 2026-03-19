@@ -25,7 +25,16 @@
       "Bash(xmllint --noout /Users/mozart/Dev/Tunnel/linux/data/resources/icons/scalable/radar-dots-symbolic.svg)",
       "Bash(xargs ls:*)",
       "Bash(grep -r \"windows\\\\|Windows\\\\|win32\\\\|MSVC\\\\|MinGW\" /Users/mozart/Dev/Tunnel/external-project --include=*.md --include=*.sh --include=*.bash --include=*.build)",
-      "Bash(xargs cat:*)"
+      "Bash(xargs cat:*)",
+      "Bash(grep -n \"hardcoded\\\\|/home/\\\\|/root/\\\\|/tmp/\\\\|C:\\\\|DEBUG\\\\|debug\" /Users/mozart/Dev/Tunnel/linux/src/*.rs)",
+      "Bash(grep -n \"hardcoded\\\\|/home/\\\\|/root/\\\\|/tmp/\\\\|C:\" /Users/mozart/Dev/Tunnel/linux/src/*.rs)",
+      "Bash(find /Users/mozart/Dev/Tunnel/linux -name glib-build-tools -o -name *.so -o -name *.a)",
+      "Bash(/tmp/flatpak_checklist.txt:*)",
+      "Read(//tmp/**)",
+      "Bash(git:*)",
+      "Bash(sort -k5 -rn)",
+      "Bash(find /Users/mozart/Dev/Tunnel -name .env* -o -name *secret* -o -name *key* -o -name *credentials*)",
+      "Bash(grep -ri \"gmail\\\\|@\\\\|password\\\\|secret\\\\|api.key\\\\|auth\\\\|token\\\\|private\\\\|key\" /Users/mozart/Dev/Tunnel/linux/data --include=*.xml* --include=*.desktop* --include=*.yaml)"
     ]
   }
 }
