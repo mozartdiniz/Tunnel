@@ -62,13 +62,26 @@
                         <property name="valign">center</property>
                         <property name="halign">center</property>
                         <child>
-                          <object class="GtkImage">
-                            <property name="icon-name">search-spinner-symbolic</property>
-                            <property name="pixel-size">96</property>
-                            <style>
-                              <class name="dim-label"/>
-                              <class name="spinning-icon"/>
-                            </style>
+                          <object class="GtkOverlay">
+                            <child>
+                              <object class="GtkImage">
+                                <property name="icon-name">radar-symbolic</property>
+                                <property name="pixel-size">96</property>
+                                <style>
+                                  <class name="dim-label"/>
+                                  <class name="spinning-icon"/>
+                                </style>
+                              </object>
+                            </child>
+                            <child type="overlay">
+                              <object class="GtkImage">
+                                <property name="icon-name">radar-dots-symbolic</property>
+                                <property name="pixel-size">96</property>
+                                <style>
+                                  <class name="dim-label"/>
+                                </style>
+                              </object>
+                            </child>
                           </object>
                         </child>
                         <child>

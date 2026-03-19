@@ -72,8 +72,7 @@ struct ContentView: View {
 
     private var emptyState: some View {
         VStack(spacing: 16) {
-            searchSpinnerImage
-                .rotationEffect(.degrees(spinnerRotation))
+            radarIcon
                 .onAppear {
                     withAnimation(.linear(duration: 3).repeatForever(autoreverses: false)) {
                         spinnerRotation = 360
@@ -89,17 +88,26 @@ struct ContentView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    private var searchSpinnerImage: AnyView {
-        if let url = Bundle.module.url(forResource: "search-spinner", withExtension: "svg"),
-           let image = NSImage(contentsOf: url) {
-            return AnyView(Image(nsImage: image)
-                .resizable()
-                .frame(width: 80, height: 80))
+    private var radarIcon: some View {
+        ZStack {
+            svgImage(named: "radar")
+                .rotationEffect(.degrees(spinnerRotation))
+            svgImage(named: "radar-dots")
         }
-        return AnyView(Image(systemName: "magnifyingglass")
-            .font(.system(size: 40))
-            .foregroundStyle(.secondary)
-            .frame(width: 80, height: 80))
+        .frame(width: 80, height: 80)
+    }
+
+    private func svgImage(named name: String) -> some View {
+        Group {
+            if let url = Bundle.module.url(forResource: name, withExtension: "svg"),
+               let image = NSImage(contentsOf: url) {
+                Image(nsImage: image)
+                    .renderingMode(.template)
+                    .resizable()
+                    .frame(width: 80, height: 80)
+                    .foregroundStyle(.secondary)
+            }
+        }
     }
 
     // MARK: Status Bar

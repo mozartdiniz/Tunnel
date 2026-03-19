@@ -18,7 +18,9 @@
       "Bash(find /Users/mozart/Dev/Tunnel/linux -name *.yml -o -name *.yaml -o -name flatpak.json)",
       "Bash(ls -la /Users/mozart/Dev/Tunnel/linux/build-aux/*.json)",
       "Bash(chmod:*)",
-      "Bash(find src:*)"
+      "Bash(find src:*)",
+      "Bash(~/.cargo/bin/cargo build:*)",
+      "Bash(xmllint --noout /Users/mozart/Dev/Tunnel/linux/data/resources/window.ui)"
     ]
   }
 }
