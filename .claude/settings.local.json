@@ -20,7 +20,9 @@
       "Bash(chmod:*)",
       "Bash(find src:*)",
       "Bash(~/.cargo/bin/cargo build:*)",
-      "Bash(xmllint --noout /Users/mozart/Dev/Tunnel/linux/data/resources/window.ui)"
+      "Bash(xmllint --noout /Users/mozart/Dev/Tunnel/linux/data/resources/window.ui)",
+      "Bash(xmllint --noout /Users/mozart/Dev/Tunnel/linux/data/resources/icons/scalable/radar-symbolic.svg)",
+      "Bash(xmllint --noout /Users/mozart/Dev/Tunnel/linux/data/resources/icons/scalable/radar-dots-symbolic.svg)"
     ]
   }
 }
