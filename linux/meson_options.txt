@@ -5,3 +5,10 @@ option(
   value: 'default',
   description: 'Application profile. "development" appends .Devel to the app ID and enables debug features.',
 )
+
+option(
+  'target',
+  type: 'string',
+  value: '',
+  description: 'Cross-compilation target triple (e.g. x86_64-pc-windows-gnu). Leave empty for native compilation.',
+)

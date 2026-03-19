@@ -51,9 +51,6 @@ fs2 = "0.4"
 # Cross-platform hostname (replaces /etc/hostname — roadmap 9.1)
 gethostname = "0.4"
 
-# Sleep inhibition via systemd-logind (roadmap 3.4)
-zbus = { version = "4", default-features = false, features = ["tokio"] }
-
 # Multi-file/folder transfer: directory compression (roadmap 3.7)
 zip = "2"
 tempfile = "3"
@@ -72,6 +69,14 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 # Bridge between tokio tasks and GTK event loop
 async-channel = "2"
+
+# Sleep inhibition via systemd-logind — Linux only
+[target.'cfg(target_os = "linux")'.dependencies]
+zbus = { version = "4", default-features = false, features = ["tokio"] }
+
+# Windows-specific: restore stdout/stderr when launched from a terminal
+[target.'cfg(windows)'.dependencies]
+win32console = "0.1"
 
 [build-dependencies]
 # Compile GResource XML into a binary blob embedded in the app (roadmap 2.6)

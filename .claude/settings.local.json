@@ -22,7 +22,10 @@
       "Bash(~/.cargo/bin/cargo build:*)",
       "Bash(xmllint --noout /Users/mozart/Dev/Tunnel/linux/data/resources/window.ui)",
       "Bash(xmllint --noout /Users/mozart/Dev/Tunnel/linux/data/resources/icons/scalable/radar-symbolic.svg)",
-      "Bash(xmllint --noout /Users/mozart/Dev/Tunnel/linux/data/resources/icons/scalable/radar-dots-symbolic.svg)"
+      "Bash(xmllint --noout /Users/mozart/Dev/Tunnel/linux/data/resources/icons/scalable/radar-dots-symbolic.svg)",
+      "Bash(xargs ls:*)",
+      "Bash(grep -r \"windows\\\\|Windows\\\\|win32\\\\|MSVC\\\\|MinGW\" /Users/mozart/Dev/Tunnel/external-project --include=*.md --include=*.sh --include=*.bash --include=*.build)",
+      "Bash(xargs cat:*)"
     ]
   }
 }

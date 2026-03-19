@@ -11,19 +11,31 @@ else
   cargo_args = ['--release']
 endif
 
+cross_target = get_option('target')
+bin_suffix = ''
+bin_install_dir = get_option('bindir')
+
+if cross_target != ''
+  if cross_target.contains('windows')
+    bin_suffix = '.exe'
+    bin_install_dir = ''
+  endif
+endif
+
 custom_target(
   'cargo-build',
   build_by_default: true,
   build_always_stale: true,
-  output: 'tunnel',
+  output: 'tunnel' + bin_suffix,
   console: true,
   install: true,
-  install_dir: get_option('bindir'),
+  install_dir: bin_install_dir,
   command: [
     find_program(meson.project_source_root() / 'build-aux' / 'meson' / 'cargo_wrapper.py'),
     '--manifest-path', meson.project_source_root() / 'Cargo.toml',
     '--bin', 'tunnel',
     '--target-dir', meson.project_build_root() / 'cargo-target',
+    cross_target != '' ? ['--target', cross_target] : [],
     cargo_args,
     '@OUTPUT@',
   ],
