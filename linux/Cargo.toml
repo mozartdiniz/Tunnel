@@ -2,64 +2,63 @@
 name = "tunnel"
 version = "0.1.0"
 edition = "2021"
+authors = ["Your Name <email@example.com>"]
+description = "Local network file transfer app built with Adwaita"
 
 [[bin]]
 name = "tunnel"
 path = "src/main.rs"
 
 [dependencies]
-# Async runtime
+# --- Async Runtime ---
 tokio = { version = "1", features = ["full"] }
 
+# --- Networking Stack ---
 # HTTP server (LocalSend receive side) + HTTPS client (send side)
 axum = { version = "0.8", features = ["multipart"] }
 axum-server = { version = "0.7", features = ["tls-rustls"] }
 reqwest = { version = "0.12", features = ["multipart", "rustls-tls", "json", "stream"], default-features = false }
 tower = "0.5"
 
-# No longer needed — replaced by LocalSend UDP multicast
-# mdns-sd = "0.11"
-
-# Streaming utilities
+# --- Streaming Utilities ---
 tokio-util = { version = "0.7", features = ["io"] }
 futures = "0.3"
 
-# UDP socket options (SO_REUSEPORT for multicast)
+# --- UDP Socket Options (SO_REUSEPORT for multicast) ---
 socket2 = "0.5"
 
-# TLS — self-signed certs + TOFU (Trust On First Use)
+# --- Security & TLS ---
+# Self-signed certs + TOFU (Trust On First Use)
 rcgen = "0.11"
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
 tokio-rustls = "0.26"
 rustls-pemfile = "2"
 
-# GTK4 / Libadwaita UI
+# --- GTK4 / Libadwaita UI Stack ---
 gtk4 = { version = "0.9", features = ["v4_12"] }
 libadwaita = { version = "0.7", features = ["v1_5"] }
 
-# Serialization
+# --- Data Serialization ---
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
+# --- File Integrity & System Utilities ---
 # SHA-256 checksums for file integrity
 sha2 = "0.10"
 hex = "0.4"
-
-# Cross-platform disk space check (replaces nix::statvfs — roadmap 9.1)
+# Cross-platform disk space check
 fs2 = "0.4"
-
-# Cross-platform hostname (replaces /etc/hostname — roadmap 9.1)
+# Cross-platform hostname retrieval
 gethostname = "0.4"
 
-# Multi-file/folder transfer: directory compression (roadmap 3.7)
+# --- Multi-file Transfer & Compression ---
 zip = "2"
 tempfile = "3"
 walkdir = "2"
 
-# Enum-to-string derivation (action name registry)
+# --- General Utilities ---
+# Enum-to-string derivation for action names
 strum = { version = "0.26", features = ["derive"] }
-
-# Utilities
 uuid = { version = "1", features = ["v4"] }
 directories = "5"
 anyhow = "1"
@@ -70,14 +69,45 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 # Bridge between tokio tasks and GTK event loop
 async-channel = "2"
 
-# Sleep inhibition via systemd-logind — Linux only
+# --- Platform-Specific Dependencies ---
+
+# Linux-only: Sleep inhibition via systemd-logind (D-Bus)
 [target.'cfg(target_os = "linux")'.dependencies]
 zbus = { version = "4", default-features = false, features = ["tokio"] }
 
-# Windows-specific: restore stdout/stderr when launched from a terminal
+# Windows-only: Restore stdout/stderr when launched from a terminal
 [target.'cfg(windows)'.dependencies]
 win32console = "0.1"
 
 [build-dependencies]
-# Compile GResource XML into a binary blob embedded in the app (roadmap 2.6)
+# Compile GResource XML into a binary blob embedded in the app
 glib-build-tools = "0.20"
+
+# --- Packaging Configuration (cargo-packager) ---
+
+[package.metadata.packager]
+product_name = "Tunnel"
+# Use a simple alphanumeric ID for WiX compatibility
+identifier = "com.tunnel.app"
+version = "0.1.0"
+# Single string author/publisher
+authors = ["TunnelDev"]
+publisher = "TunnelDev"
+description = "Local network file transfer tool"
+category = "Utility"
+
+# Top-level formats
+formats = ["wix", "deb", "appimage"]
+
+# Global resources - WiX will pull these into the root folder
+resources = [
+  "C:/gtk-build/gtk/x64/release/bin/*.dll"
+]
+
+[[package.metadata.packager.binaries]]
+path = "tunnel"
+main = true
+
+# Linux-specific (This block usually doesn't trigger the Windows parser errors)
+[package.metadata.packager.linux]
+generate_desktop_entry = true
