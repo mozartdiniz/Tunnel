@@ -1,0 +1,35 @@
+name: Flatpak Release Build
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  flatpak:
+    name: Build Flatpak bundle
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate cargo-sources.json
+        run: |
+          python3 linux/build-aux/flatpak-cargo-generator.py \
+            linux/Cargo.lock \
+            --module-name tunnel \
+            -o linux/build-aux/cargo-sources.json
+
+      - name: Build Flatpak bundle
+        uses: flatpak/flatpak-github-actions/flatpak-builder@v6
+        with:
+          bundle: dev.tunnel.Tunnel.flatpak
+          manifest-path: linux/build-aux/dev.tunnel.Tunnel.yaml
+          cache-key: flatpak-builder-${{ github.sha }}
+
+      - name: Upload Flatpak artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dev.tunnel.Tunnel-${{ github.sha }}
+          path: dev.tunnel.Tunnel.flatpak
+          retention-days: 30
