@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Firewall exceptions for Tunnel.
+  Uses WixQuietExec from WixUtilExtension (included by cargo-packager).
+
+  Rules added on install, removed on uninstall:
+    UDP 53317 — peer discovery (multicast announcements)
+    TCP 53317 — HTTPS file-transfer server
+  Both rules are scoped to private + domain profiles only.
+-->
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Fragment>
+
+    <!-- ── Install: UDP discovery rule ──────────────────────────────────── -->
+    <SetProperty Id="AddFirewallUDP"
+                 Value="&quot;[SystemFolder]netsh.exe&quot; advfirewall firewall add rule name=&quot;Tunnel - Discovery&quot; dir=in action=allow protocol=UDP localport=53317 profile=private,domain"
+                 Before="AddFirewallUDP"
+                 Sequence="execute" />
+    <CustomAction Id="AddFirewallUDP"
+                  BinaryKey="WixCA"
+                  DllEntry="WixQuietExec"
+                  Execute="deferred"
+                  Impersonate="no"
+                  Return="ignore" />
+
+    <!-- ── Install: TCP transfer rule ───────────────────────────────────── -->
+    <SetProperty Id="AddFirewallTCP"
+                 Value="&quot;[SystemFolder]netsh.exe&quot; advfirewall firewall add rule name=&quot;Tunnel - Transfer&quot; dir=in action=allow protocol=TCP localport=53317 profile=private,domain"
+                 Before="AddFirewallTCP"
+                 Sequence="execute" />
+    <CustomAction Id="AddFirewallTCP"
+                  BinaryKey="WixCA"
+                  DllEntry="WixQuietExec"
+                  Execute="deferred"
+                  Impersonate="no"
+                  Return="ignore" />
+
+    <!-- ── Uninstall: remove UDP rule ───────────────────────────────────── -->
+    <SetProperty Id="RemoveFirewallUDP"
+                 Value="&quot;[SystemFolder]netsh.exe&quot; advfirewall firewall delete rule name=&quot;Tunnel - Discovery&quot;"
+                 Before="RemoveFirewallUDP"
+                 Sequence="execute" />
+    <CustomAction Id="RemoveFirewallUDP"
+                  BinaryKey="WixCA"
+                  DllEntry="WixQuietExec"
+                  Execute="deferred"
+                  Impersonate="no"
+                  Return="ignore" />
+
+    <!-- ── Uninstall: remove TCP rule ───────────────────────────────────── -->
+    <SetProperty Id="RemoveFirewallTCP"
+                 Value="&quot;[SystemFolder]netsh.exe&quot; advfirewall firewall delete rule name=&quot;Tunnel - Transfer&quot;"
+                 Before="RemoveFirewallTCP"
+                 Sequence="execute" />
+    <CustomAction Id="RemoveFirewallTCP"
+                  BinaryKey="WixCA"
+                  DllEntry="WixQuietExec"
+                  Execute="deferred"
+                  Impersonate="no"
+                  Return="ignore" />
+
+    <InstallExecuteSequence>
+      <!-- Add rules after files land, skip on upgrade (Installed is set). -->
+      <Custom Action="AddFirewallUDP" After="InstallFiles">NOT Installed</Custom>
+      <Custom Action="AddFirewallTCP" After="AddFirewallUDP">NOT Installed</Custom>
+      <!-- Remove rules before files are wiped on full uninstall. -->
+      <Custom Action="RemoveFirewallUDP" Before="RemoveFiles">REMOVE~="ALL"</Custom>
+      <Custom Action="RemoveFirewallTCP" After="RemoveFirewallUDP">REMOVE~="ALL"</Custom>
+    </InstallExecuteSequence>
+
+  </Fragment>
+</Wix>
