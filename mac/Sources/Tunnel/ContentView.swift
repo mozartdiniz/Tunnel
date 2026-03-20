@@ -34,10 +34,29 @@ struct ContentView: View {
             Text(model.deviceName)
                 .font(.headline)
             Spacer()
+            scanButton
             settingsButton
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
+    }
+
+    private var scanButton: some View {
+        Button {
+            model.scanNetwork()
+        } label: {
+            if model.isScanning {
+                ProgressView()
+                    .controlSize(.small)
+                    .frame(width: 16, height: 16)
+            } else {
+                Image(systemName: "magnifyingglass")
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .buttonStyle(.plain)
+        .help("Search for devices on all network interfaces")
+        .disabled(model.isScanning)
     }
 
     private var settingsButton: some View {

@@ -192,6 +192,119 @@ final class Discovery {
         }
     }
 
+    // MARK: - Subnet scan
+
+    /// Probe every host in the local /24-or-smaller subnets via HTTPS.
+    /// Finds peers that multicast cannot reach (e.g. Ethernet ↔ Wi-Fi on different
+    /// subnets) because routers forward TCP even when they block multicast.
+    /// All probes run concurrently with a 500 ms timeout; the scan finishes quickly.
+    func scanSubnets() async {
+        let candidates = buildScanCandidates()
+        guard !candidates.isEmpty else { return }
+        print("[Discovery] Scanning \(candidates.count) candidate IPs")
+
+        let sessionConfig = URLSessionConfiguration.ephemeral
+        sessionConfig.timeoutIntervalForRequest = 0.5
+        let delegate = AcceptAnyCertDelegate()
+        let session = URLSession(configuration: sessionConfig, delegate: delegate, delegateQueue: nil)
+        defer { session.invalidateAndCancel() }
+
+        let ownFP = fingerprint
+
+        var found: [(info: DeviceInfo, ip: String)] = []
+        await withTaskGroup(of: (DeviceInfo, String)?.self) { group in
+            for ip in candidates {
+                group.addTask {
+                    guard let url = URL(string: "https://\(ip):\(localsendPort)/api/localsend/v2/info")
+                    else { return nil }
+                    let request = URLRequest(url: url, timeoutInterval: 0.5)
+                    guard let (data, _) = try? await session.data(for: request) else { return nil }
+                    guard let info = try? JSONDecoder().decode(DeviceInfo.self, from: data),
+                          info.fingerprint != ownFP,
+                          info.alias.count <= 256
+                    else { return nil }
+                    print("[Discovery] Scan found \(info.alias) @ \(ip):\(info.port)")
+                    return (info, ip)
+                }
+            }
+            for await result in group {
+                if let pair = result { found.append(pair) }
+            }
+        }
+
+        for (info, ip) in found {
+            let peer = Peer(id: info.fingerprint, name: info.alias, host: ip, port: info.port)
+            DispatchQueue.main.async { [weak self] in self?.onPeerFound?(peer) }
+        }
+    }
+
+    // MARK: - Scan helpers
+
+    /// All host addresses in each detected local subnet (capped at /24).
+    private func buildScanCandidates() -> [String] {
+        let interfaces = localIPv4Interfaces()
+        let ownIPs = Set(interfaces.map { $0.ip })
+        var candidates = Set<String>()
+
+        for (ip, prefixLen) in interfaces {
+            let effective = max(prefixLen, 24)
+            let hostBits = 32 - effective
+            guard hostBits > 0 else { continue }
+
+            let parts = ip.split(separator: ".").compactMap { UInt32($0) }
+            guard parts.count == 4 else { continue }
+            let ipU32 = (parts[0] << 24) | (parts[1] << 16) | (parts[2] << 8) | parts[3]
+            let mask: UInt32 = hostBits >= 32 ? 0 : ~UInt32(0) << hostBits
+            let network = ipU32 & mask
+            let hostCount = (1 << hostBits) - 2
+
+            for i in 1...hostCount {
+                let h = network | UInt32(i)
+                let hostIP = "\((h >> 24) & 0xFF).\((h >> 16) & 0xFF).\((h >> 8) & 0xFF).\(h & 0xFF)"
+                if !ownIPs.contains(hostIP) { candidates.insert(hostIP) }
+            }
+        }
+        return candidates.sorted()
+    }
+
+    /// Returns (ip, prefixLen) for every active non-loopback IPv4 interface.
+    private func localIPv4Interfaces() -> [(ip: String, prefixLen: Int)] {
+        var result: [(ip: String, prefixLen: Int)] = []
+        var ifaddr: UnsafeMutablePointer<ifaddrs>?
+        guard getifaddrs(&ifaddr) == 0 else { return [] }
+        defer { freeifaddrs(ifaddr) }
+
+        var ptr = ifaddr
+        while let iface = ptr {
+            defer { ptr = iface.pointee.ifa_next }
+
+            guard let addr = iface.pointee.ifa_addr,
+                  addr.pointee.sa_family == UInt8(AF_INET),
+                  (iface.pointee.ifa_flags & UInt32(IFF_LOOPBACK)) == 0
+            else { continue }
+
+            var ipBuf = [CChar](repeating: 0, count: Int(INET_ADDRSTRLEN))
+            _ = addr.withMemoryRebound(to: sockaddr_in.self, capacity: 1) { sin in
+                withUnsafePointer(to: sin.pointee.sin_addr) { addrPtr in
+                    addrPtr.withMemoryRebound(to: Void.self, capacity: 1) {
+                        inet_ntop(AF_INET, $0, &ipBuf, socklen_t(INET_ADDRSTRLEN))
+                    }
+                }
+            }
+            let ipStr = String(cString: ipBuf)
+            guard !ipStr.isEmpty, ipStr != "0.0.0.0" else { continue }
+
+            var prefixLen = 0
+            if let netmask = iface.pointee.ifa_netmask {
+                netmask.withMemoryRebound(to: sockaddr_in.self, capacity: 1) { sin in
+                    prefixLen = Int(sin.pointee.sin_addr.s_addr.nonzeroBitCount)
+                }
+            }
+            result.append((ip: ipStr, prefixLen: prefixLen))
+        }
+        return result
+    }
+
     private func buildInfo(alias: String, port: UInt16, announce: Bool?) -> DeviceInfo {
         DeviceInfo(
             alias: alias,
@@ -204,5 +317,26 @@ final class Discovery {
             download: false,
             announce: announce
         )
+    }
+}
+
+// MARK: - AcceptAnyCertDelegate
+
+/// URLSession delegate that accepts any TLS certificate.
+/// Used only during subnet scanning, where we probe unknown peers
+/// before we know their certificate fingerprint.
+private class AcceptAnyCertDelegate: NSObject, URLSessionDelegate {
+    func urlSession(
+        _ session: URLSession,
+        didReceive challenge: URLAuthenticationChallenge,
+        completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void
+    ) {
+        guard challenge.protectionSpace.authenticationMethod == NSURLAuthenticationMethodServerTrust,
+              let trust = challenge.protectionSpace.serverTrust
+        else {
+            completionHandler(.cancelAuthenticationChallenge, nil)
+            return
+        }
+        completionHandler(.useCredential, URLCredential(trust: trust))
     }
 }

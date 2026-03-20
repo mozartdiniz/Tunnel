@@ -1,4 +1,4 @@
-/// LocalSend peer discovery via UDP multicast.
+/// LocalSend peer discovery via UDP multicast + HTTP subnet scan.
 ///
 /// Each device:
 ///   - Announces itself by sending a DeviceInfo JSON payload to 224.0.0.167:53317.
@@ -12,7 +12,12 @@
 /// enumerate every active non-loopback IPv4 interface and:
 ///   - join the multicast group on each one (so we receive from all of them), and
 ///   - send announcements out of each one (so peers on any adapter see us).
-use std::collections::HashMap;
+///
+/// Subnet scan: when multicast fails (e.g. Ethernet ↔ Wi-Fi on different subnets),
+/// `scan_subnets` probes every host in each local /24-or-smaller subnet via HTTPS.
+/// Because the router forwards TCP between subnets even when it doesn't forward
+/// multicast, this finds peers that multicast misses.
+use std::collections::HashSet;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -27,7 +32,7 @@ use crate::localsend::{DeviceInfo, LOCALSEND_PORT, MULTICAST_ADDR};
 const HEARTBEAT_INTERVAL_SECS: u64 = 10;
 const PEER_EXPIRY_SECS: u64 = 30;
 
-/// Events yielded by the browse task.
+/// Events yielded by the browse task and the subnet scanner.
 pub enum DiscoveryEvent {
     PeerFound { fingerprint: String, alias: String, addr: IpAddr, port: u16 },
     PeerLost { fingerprint: String },
@@ -39,19 +44,25 @@ pub struct Discovery {
 
 // ── Interface helpers ────────────────────────────────────────────────────────
 
-/// Return the IPv4 address of every active, non-loopback network interface.
-/// Falls back to an empty Vec on any error; callers should treat that as
-/// "let the OS decide" (i.e. bind to INADDR_ANY / 0.0.0.0).
-fn local_ipv4_addrs() -> Vec<Ipv4Addr> {
+/// Return (IPv4 address, prefix length) for every active, non-loopback interface.
+fn local_ipv4_addrs_with_prefix() -> Vec<(Ipv4Addr, u8)> {
     if_addrs::get_if_addrs()
         .unwrap_or_default()
         .into_iter()
         .filter(|iface| !iface.is_loopback())
         .filter_map(|iface| match iface.addr {
-            if_addrs::IfAddr::V4(v4) => Some(v4.ip),
+            if_addrs::IfAddr::V4(v4) => {
+                let prefix = u32::from(v4.netmask).count_ones() as u8;
+                Some((v4.ip, prefix))
+            }
             _ => None,
         })
         .collect()
+}
+
+/// Return only the IPv4 addresses (no prefix) of active, non-loopback interfaces.
+fn local_ipv4_addrs() -> Vec<Ipv4Addr> {
+    local_ipv4_addrs_with_prefix().into_iter().map(|(ip, _)| ip).collect()
 }
 
 /// Send `payload` to the multicast group via every active non-loopback IPv4
@@ -61,7 +72,6 @@ async fn multicast_send(payload: Vec<u8>) {
     let addrs = local_ipv4_addrs();
 
     if addrs.is_empty() {
-        // Fallback: let the OS choose the outbound interface.
         if let Ok(sock) = UdpSocket::bind("0.0.0.0:0").await {
             let _ = sock.send_to(&payload, &dest).await;
         }
@@ -86,7 +96,95 @@ async fn multicast_send(payload: Vec<u8>) {
     }
 }
 
-// ── Discovery ────────────────────────────────────────────────────────────────
+// ── Subnet scanner ───────────────────────────────────────────────────────────
+
+/// Every host address in each local /24-or-smaller subnet, excluding our own IPs.
+/// Subnets wider than /24 are clamped to /24 to avoid scanning thousands of hosts.
+fn scan_candidate_ips() -> Vec<Ipv4Addr> {
+    let interfaces = local_ipv4_addrs_with_prefix();
+    let own: HashSet<Ipv4Addr> = interfaces.iter().map(|(ip, _)| *ip).collect();
+    let mut candidates: HashSet<Ipv4Addr> = HashSet::new();
+
+    for (ip, prefix_len) in interfaces {
+        let effective_prefix = prefix_len.max(24);
+        let host_bits = 32u8.saturating_sub(effective_prefix);
+        let ip_u32 = u32::from(ip);
+        let mask = (!0u32).checked_shl(host_bits as u32).unwrap_or(0);
+        let network = ip_u32 & mask;
+        let host_count = (1u32 << host_bits).saturating_sub(2);
+
+        for i in 1..=host_count {
+            let addr = Ipv4Addr::from(network | i);
+            if !own.contains(&addr) {
+                candidates.insert(addr);
+            }
+        }
+    }
+
+    let mut out: Vec<Ipv4Addr> = candidates.into_iter().collect();
+    out.sort();
+    out
+}
+
+/// Probe every host in the local subnets via HTTPS and return `PeerFound` events
+/// for each one that responds with a valid LocalSend `DeviceInfo`.
+///
+/// All probes run concurrently with a 500 ms timeout each, so the scan
+/// completes in well under a second even for a full /24.
+pub async fn scan_subnets(own_fingerprint: &str) -> Vec<DiscoveryEvent> {
+    let Ok(client) = reqwest::Client::builder()
+        .danger_accept_invalid_certs(true)
+        .timeout(Duration::from_millis(500))
+        .build()
+    else {
+        tracing::warn!("scan_subnets: failed to build HTTP client");
+        return vec![];
+    };
+
+    let candidates = scan_candidate_ips();
+    if candidates.is_empty() {
+        return vec![];
+    }
+    tracing::info!("LocalSend: scanning {} candidate IPs", candidates.len());
+
+    let own_fp = own_fingerprint.to_string();
+    let tasks: Vec<_> = candidates
+        .into_iter()
+        .map(|ip| {
+            let client = client.clone();
+            let own_fp = own_fp.clone();
+            tokio::spawn(async move {
+                let url =
+                    format!("https://{}:{}/api/localsend/v2/info", ip, LOCALSEND_PORT);
+                let resp = client.get(&url).send().await.ok()?;
+                let info = resp.json::<DeviceInfo>().await.ok()?;
+                if info.fingerprint == own_fp || info.alias.len() > 256 {
+                    return None;
+                }
+                tracing::info!(
+                    "LocalSend scan: found {} @ {}:{}",
+                    info.alias, ip, info.port
+                );
+                Some(DiscoveryEvent::PeerFound {
+                    fingerprint: info.fingerprint,
+                    alias: info.alias,
+                    addr: IpAddr::V4(ip),
+                    port: info.port,
+                })
+            })
+        })
+        .collect();
+
+    let mut events = Vec::new();
+    for task in tasks {
+        if let Ok(Some(ev)) = task.await {
+            events.push(ev);
+        }
+    }
+    events
+}
+
+// ── Discovery (multicast) ────────────────────────────────────────────────────
 
 impl Discovery {
     pub fn new(fingerprint: String) -> Self {
@@ -116,12 +214,9 @@ impl Discovery {
         let (tx, rx) = mpsc::channel(32);
         let own_fingerprint = self.fingerprint.clone();
         let multicast_ip: Ipv4Addr = MULTICAST_ADDR.parse().unwrap();
-        // None = "I'm here, responding" — distinct from Some(false) which means goodbye.
         let own_info = self.build_info(&alias, port, None);
-        // Heartbeat: re-announce every 10 s so remote peers don't expire us.
         let heartbeat_info = self.build_info(&alias, port, Some(true));
 
-        // Bind to 0.0.0.0:53317 with SO_REUSEADDR so multiple processes can coexist.
         let std_socket = Socket::new(Domain::IPV4, Type::DGRAM, Some(Protocol::UDP))?;
         std_socket.set_reuse_address(true)?;
         std_socket.bind(&SocketAddr::from(([0u8, 0, 0, 0], LOCALSEND_PORT)).into())?;
@@ -142,7 +237,6 @@ impl Discovery {
                     Err(e) => tracing::warn!("join_multicast on {addr}: {e}"),
                 }
             }
-            // If every per-interface join failed, fall back to INADDR_ANY.
             if !joined {
                 std_socket.join_multicast_v4(&multicast_ip, &Ipv4Addr::UNSPECIFIED)?;
             }
@@ -152,13 +246,14 @@ impl Discovery {
         let socket = Arc::new(UdpSocket::from_std(std_socket.into())?);
 
         tokio::spawn(async move {
-            let mut peer_last_seen: HashMap<String, Instant> = HashMap::new();
+            let mut peer_last_seen: std::collections::HashMap<String, Instant> =
+                std::collections::HashMap::new();
             let mut buf = vec![0u8; 4096];
             let mut expiry_tick =
                 tokio::time::interval(Duration::from_secs(HEARTBEAT_INTERVAL_SECS));
             let mut heartbeat_tick =
                 tokio::time::interval(Duration::from_secs(HEARTBEAT_INTERVAL_SECS));
-            heartbeat_tick.reset(); // skip immediate first tick — advertise() already ran
+            heartbeat_tick.reset();
             let heartbeat_payload = serde_json::to_vec(&heartbeat_info).unwrap_or_default();
 
             loop {
@@ -177,7 +272,9 @@ impl Discovery {
 
                         if is_goodbye {
                             if peer_last_seen.remove(&fp).is_some() {
-                                let _ = tx.send(DiscoveryEvent::PeerLost { fingerprint: fp }).await;
+                                let _ = tx
+                                    .send(DiscoveryEvent::PeerLost { fingerprint: fp })
+                                    .await;
                             }
                             continue;
                         }
@@ -199,7 +296,6 @@ impl Discovery {
                                 })
                                 .await;
 
-                            // Respond with our own info so the peer immediately discovers us.
                             let resp = serde_json::to_vec(&own_info).unwrap_or_default();
                             tokio::spawn(multicast_send(resp));
                         }

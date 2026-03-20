@@ -16,6 +16,7 @@ final class AppModel: ObservableObject {
     @Published var deviceName: String = ""
     @Published var downloadDir: URL = FileManager.default
         .urls(for: .downloadsDirectory, in: .userDomainMask)[0]
+    @Published var isScanning: Bool = false
 
     var config: Config
     var tlsManager: TLSManager?
@@ -64,6 +65,13 @@ final class AppModel: ObservableObject {
             disc.startBrowsing(alias: config.deviceName, port: localsendPort)
 
             statusMessage = "Ready — \(config.deviceName)"
+
+            // Give multicast 5 seconds to find peers, then do one automatic
+            // subnet scan to catch peers on different network segments.
+            Task {
+                try? await Task.sleep(for: .seconds(5))
+                scanNetwork()
+            }
         } catch {
             statusMessage = "Error: \(error.localizedDescription)"
         }
@@ -137,6 +145,20 @@ final class AppModel: ObservableObject {
     }
 
     // MARK: - Settings
+
+    // MARK: - Subnet scan
+
+    /// Probe all local subnets for peers that multicast cannot reach.
+    /// User-triggered (search button) and also fires automatically 5 seconds
+    /// after startup to catch peers on a different subnet (e.g. Ethernet ↔ Wi-Fi).
+    func scanNetwork() {
+        guard !isScanning, let disc = discovery else { return }
+        isScanning = true
+        Task {
+            await disc.scanSubnets()
+            isScanning = false
+        }
+    }
 
     func updateDeviceName(_ name: String) {
         config.deviceName = name

@@ -2,12 +2,13 @@
 use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::Arc;
+use std::time::Duration;
 
 use anyhow::Result;
 use tokio::sync::{Mutex, RwLock, mpsc};
 
 use crate::config::Config;
-use crate::discovery::{Discovery, DiscoveryEvent};
+use crate::discovery::{scan_subnets, Discovery, DiscoveryEvent};
 use crate::localsend::LOCALSEND_PORT;
 use crate::tls::TlsStack;
 use crate::transfer::{send_files, SendRequest};
@@ -15,6 +16,24 @@ use crate::transfer::{send_files, SendRequest};
 use super::handlers::{handler_cancel, handler_device_info, handler_prepare_upload, handler_upload};
 use super::state::AppState;
 use super::types::{AppCommand, AppEvent, PendingMap};
+
+/// Convert scan results into `AppEvent::PeerFound` and send them to the UI channel.
+async fn emit_scan_results(
+    events: Vec<DiscoveryEvent>,
+    event_tx: &async_channel::Sender<AppEvent>,
+) {
+    for ev in events {
+        if let DiscoveryEvent::PeerFound { fingerprint, alias, addr, port } = ev {
+            let _ = event_tx
+                .send(AppEvent::PeerFound {
+                    id: fingerprint,
+                    name: alias,
+                    addr: SocketAddr::new(addr, port),
+                })
+                .await;
+        }
+    }
+}
 
 /// Spawn a task that forwards `DiscoveryEvent`s from the browse channel to the UI event channel.
 /// Returns an abort handle so the task can be cancelled on refresh.
@@ -107,6 +126,19 @@ pub async fn run_network(
 
     let mut browse_abort = spawn_browse_loop(browse_rx, event_tx.clone());
 
+    // ── Startup subnet scan ──────────────────────────────────────────────────
+    // Give multicast 5 seconds to find peers before falling back to a scan.
+    // This catches peers on a different subnet (e.g. Ethernet ↔ Wi-Fi) without
+    // forcing a scan on every launch when multicast works fine.
+    {
+        let etx = event_tx.clone();
+        let fp = fingerprint.clone();
+        tokio::spawn(async move {
+            tokio::time::sleep(Duration::from_secs(5)).await;
+            emit_scan_results(scan_subnets(&fp).await, &etx).await;
+        });
+    }
+
     // ── Command loop ─────────────────────────────────────────────────────────
     while let Ok(cmd) = cmd_rx.recv().await {
         match cmd {
@@ -167,6 +199,12 @@ pub async fn run_network(
                     }
                     Err(e) => tracing::error!("Failed to restart browse: {e}"),
                 }
+                // Also scan subnets immediately — catches peers multicast can't reach.
+                let etx = event_tx.clone();
+                let fp = fingerprint.clone();
+                tokio::spawn(async move {
+                    emit_scan_results(scan_subnets(&fp).await, &etx).await;
+                });
             }
         }
     }
