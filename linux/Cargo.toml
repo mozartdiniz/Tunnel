@@ -97,6 +97,7 @@ authors = ["TunnelDev"]
 publisher = "TunnelDev"
 description = "Local network file transfer tool"
 category = "Utility"
+icons = ["../../icon/app_icon.png"]
 
 # Top-level formats
 formats = ["wix", "deb", "appimage"]

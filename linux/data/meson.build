@@ -56,3 +56,11 @@ install_data(
   install_dir: get_option('datadir') / 'icons/hicolor/symbolic/apps',
   rename: app_id + '-symbolic.svg',
 )
+
+# 512×512 PNG from the shared icon source (used by desktop environments
+# that prefer raster icons and by AppStream for store listings).
+install_data(
+  meson.project_source_root() / '../icon/app_icon.png',
+  install_dir: get_option('datadir') / 'icons/hicolor/512x512/apps',
+  rename: app_id + '.png',
+)
