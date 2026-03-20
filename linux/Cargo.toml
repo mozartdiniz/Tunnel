@@ -2,7 +2,9 @@
 name = "tunnel"
 version = "0.1.0"
 edition = "2021"
-authors = ["Your Name <email@example.com>"]
+authors = ["Mozart Diniz <mozart.diniz@gmail.com>"]
+license = "MIT"
+repository = "https://github.com/mozartdiniz/Tunnel"
 description = "Local network file transfer app built with Adwaita"
 
 [[bin]]
@@ -93,8 +95,8 @@ product_name = "Tunnel"
 identifier = "com.tunnel.app"
 version = "0.1.0"
 # Single string author/publisher
-authors = ["TunnelDev"]
-publisher = "TunnelDev"
+authors = ["Mozart Diniz"]
+publisher = "Mozart Diniz"
 description = "Local network file transfer tool"
 category = "Utility"
 icons = ["../../icon/app_icon.png"]

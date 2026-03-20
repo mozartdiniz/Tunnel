@@ -38,7 +38,8 @@
       "Bash(find /Users/mozart/Dev/Tunnel -name *.ps1 -o -name *.cs -o -name *.csproj)",
       "Bash(command -v cargo)",
       "Bash(grep -r \"icon\" /Users/mozart/Dev/Tunnel/linux/build-windows.*)",
-      "Bash(identify /Users/mozart/Dev/Tunnel/icon/app_icon.png)"
+      "Bash(identify /Users/mozart/Dev/Tunnel/icon/app_icon.png)",
+      "Bash(ls /Users/mozart/Dev/Tunnel/LICENSE*)"
     ]
   }
 }
