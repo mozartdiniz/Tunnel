@@ -132,31 +132,11 @@ struct ContentView: View {
     // MARK: Status Bar
 
     private var statusBar: some View {
-        VStack(spacing: 4) {
-            if let transfer = model.activeTransfer {
-                HStack {
-                    Text(transfer)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                    if model.transferProgress > 0 && model.transferProgress < 1 {
-                        Text("\(Int(model.transferProgress * 100))%")
-                            .font(.caption.monospacedDigit())
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                if model.transferProgress > 0 && model.transferProgress < 1 {
-                    ProgressView(value: model.transferProgress)
-                        .progressViewStyle(.linear)
-                }
-            } else {
-                Text(model.statusMessage)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
+        Text(model.statusMessage)
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
     }
 }

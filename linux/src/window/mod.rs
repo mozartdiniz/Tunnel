@@ -66,9 +66,6 @@ impl Window {
     }
 
     /// Route one `AppEvent` to the appropriate UI update.
-    ///
-    /// Peer and request events are handled inline. Transfer events update
-    /// `transfer_state` and delegate all widget mutations to `update_transfer_ui`.
     fn dispatch_event(&self, event: AppEvent) {
         let imp = self.imp();
         let cmd_tx = imp.cmd_tx.get().expect("cmd_tx not initialised");
@@ -114,111 +111,52 @@ impl Window {
             }
 
             AppEvent::TransferProgress {
+                peer_fingerprint,
                 bytes_done,
                 total_bytes,
                 bytes_per_sec,
                 eta_secs,
                 ..
             } => {
-                self.set_transfer_state(TransferState::Transferring {
-                    bytes_done,
-                    total_bytes,
-                    bytes_per_sec,
-                    eta_secs,
-                });
+                crate::ui::update_peer_row_progress(
+                    &imp.list_box,
+                    &peer_fingerprint,
+                    &TransferState::Transferring { bytes_done, total_bytes, bytes_per_sec, eta_secs },
+                );
             }
 
-            AppEvent::TransferComplete { saved_to, .. } => {
+            AppEvent::TransferComplete { peer_fingerprint, saved_to, .. } => {
                 crate::ui::send_complete_notification(saved_to.as_deref());
-                self.set_transfer_state(TransferState::Complete);
-            }
-
-            AppEvent::TransferError { message, .. } => {
-                self.set_transfer_state(TransferState::Error(message));
-            }
-        }
-    }
-
-    /// Transition to a new transfer state and immediately re-render transfer UI.
-    fn set_transfer_state(&self, state: TransferState) {
-        *self.imp().transfer_state.borrow_mut() = state;
-        self.update_transfer_ui();
-    }
-
-    /// Re-render all transfer-related widgets from the current `transfer_state`.
-    ///
-    /// This is the single place that touches `progress_bar` and `status_dot` —
-    /// all other code transitions state and calls here.
-    fn update_transfer_ui(&self) {
-        let imp = self.imp();
-        let state = imp.transfer_state.borrow().clone();
-
-        match state {
-            TransferState::Idle => {
-                imp.progress_bar.set_visible(false);
-                imp.progress_bar.set_fraction(0.0);
-                imp.progress_bar.set_text(None);
-                crate::ui::set_status(&imp.status_dot, "idle");
-            }
-
-            TransferState::Transferring {
-                bytes_done,
-                total_bytes,
-                bytes_per_sec,
-                eta_secs,
-            } => {
-                let fraction = if total_bytes > 0 {
-                    (bytes_done as f64 / total_bytes as f64).clamp(0.0, 1.0)
-                } else {
-                    0.0
-                };
-                let speed_str = if bytes_per_sec > 0 {
-                    format!("  {}ps", crate::ui::human_bytes(bytes_per_sec))
-                } else {
-                    String::new()
-                };
-                let eta_str = match eta_secs {
-                    Some(s) => format!("  ETA {}", crate::ui::format_eta(s)),
-                    None => String::new(),
-                };
-
-                imp.progress_bar.set_fraction(fraction);
-                imp.progress_bar.set_text(Some(&format!(
-                    "{} / {}  ({:.1}%){}{}",
-                    crate::ui::human_bytes(bytes_done),
-                    crate::ui::human_bytes(total_bytes),
-                    fraction * 100.0,
-                    speed_str,
-                    eta_str,
-                )));
-                imp.progress_bar.set_visible(true);
-                crate::ui::set_status(&imp.status_dot, "transfer");
-            }
-
-            TransferState::Complete => {
-                imp.progress_bar.set_fraction(1.0);
-                imp.progress_bar.set_visible(true);
-                crate::ui::set_status(&imp.status_dot, "idle");
-
-                // Transition back to Idle after a short pause.
+                crate::ui::update_peer_row_progress(
+                    &imp.list_box,
+                    &peer_fingerprint,
+                    &TransferState::Complete,
+                );
+                // Reset to idle subtitle after a short pause.
                 let win_weak = self.downgrade();
                 glib::timeout_add_local_once(
                     std::time::Duration::from_millis(1200),
                     move || {
                         if let Some(win) = win_weak.upgrade() {
-                            win.set_transfer_state(TransferState::Idle);
+                            crate::ui::update_peer_row_progress(
+                                &win.imp().list_box,
+                                &peer_fingerprint,
+                                &TransferState::Idle,
+                            );
                         }
                     },
                 );
             }
 
-            TransferState::Error(ref message) => {
-                imp.progress_bar.set_visible(false);
-                imp.progress_bar.set_fraction(0.0);
-                crate::ui::set_status(&imp.status_dot, "error");
+            AppEvent::TransferError { peer_fingerprint, message, .. } => {
                 crate::ui::show_error(
                     &imp.toast_overlay,
                     &format!("Transfer failed: {message}"),
+                );
+                crate::ui::update_peer_row_progress(
+                    &imp.list_box,
+                    &peer_fingerprint,
+                    &TransferState::Idle,
                 );
             }
         }

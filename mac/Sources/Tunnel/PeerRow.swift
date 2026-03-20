@@ -9,6 +9,8 @@ struct PeerRow: View {
 
     @State private var isTargeted = false
 
+    private var progress: Double? { model.peerProgress[peer.id] }
+
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: "desktopcomputer")
@@ -19,9 +21,7 @@ struct PeerRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(peer.name)
                     .font(.body)
-                Text("Drop a file to send")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                transferSubtitle
             }
 
             Spacer()
@@ -38,6 +38,33 @@ struct PeerRow: View {
         )
         .onDrop(of: [.fileURL], isTargeted: $isTargeted) { providers in
             handleDrop(providers: providers)
+        }
+    }
+
+    @ViewBuilder
+    private var transferSubtitle: some View {
+        if let pct = progress {
+            if pct >= 1.0 {
+                Text("Transfer complete ✓")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else {
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack {
+                        Text("\(Int(pct * 100))%")
+                            .font(.caption.monospacedDigit())
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                    }
+                    ProgressView(value: pct)
+                        .progressViewStyle(.linear)
+                        .frame(maxWidth: 160)
+                }
+            }
+        } else {
+            Text("Drop a file to send")
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
     }
 

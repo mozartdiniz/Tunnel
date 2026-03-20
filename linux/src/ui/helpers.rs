@@ -1,13 +1,3 @@
-use gtk4::prelude::*;
-
-/// Update the CSS class on the status dot to reflect the current transfer state.
-pub fn set_status(dot: &gtk4::Label, state: &str) {
-    dot.remove_css_class("status-dot-idle");
-    dot.remove_css_class("status-dot-transfer");
-    dot.remove_css_class("status-dot-error");
-    dot.add_css_class(&format!("status-dot-{state}"));
-}
-
 pub fn human_bytes(b: u64) -> String {
     const K: u64 = 1024;
     const M: u64 = K * 1024;

@@ -10,8 +10,8 @@ final class AppModel: ObservableObject {
 
     @Published var peers: [Peer] = []
     @Published var statusMessage: String = "Starting…"
-    @Published var transferProgress: Double = 0
-    @Published var activeTransfer: String?
+    /// Per-peer transfer progress keyed by peer fingerprint (0.0–1.0).
+    @Published var peerProgress: [String: Double] = [:]
     @Published var pendingRequest: PendingRequest?
     @Published var deviceName: String = ""
     @Published var downloadDir: URL = FileManager.default
@@ -101,8 +101,7 @@ final class AppModel: ObservableObject {
 
     func sendFile(to peer: Peer, fileURL: URL) {
         guard let tlsManager else { return }
-        activeTransfer = "Sending \(fileURL.lastPathComponent)…"
-        transferProgress = 0
+        peerProgress[peer.id] = 0
 
         Task {
             let alias = config.deviceName
@@ -115,21 +114,22 @@ final class AppModel: ObservableObject {
                     senderFingerprint: fp,
                     tlsManager: tlsManager,
                     progress: { [weak self] pct in
-                        Task { @MainActor [weak self] in self?.transferProgress = pct }
+                        Task { @MainActor [weak self] in self?.peerProgress[peer.id] = pct }
                     }
                 )
-                activeTransfer = "Sent \(fileURL.lastPathComponent) ✓"
-                transferProgress = 1
-                try? await Task.sleep(for: .seconds(3))
-                activeTransfer = nil
+                peerProgress[peer.id] = 1.0
+                try? await Task.sleep(for: .seconds(1.2))
+                peerProgress.removeValue(forKey: peer.id)
             } catch TransferError.denied {
-                activeTransfer = "Transfer declined"
+                peerProgress.removeValue(forKey: peer.id)
+                statusMessage = "Transfer declined"
                 try? await Task.sleep(for: .seconds(3))
-                activeTransfer = nil
+                statusMessage = "Ready — \(config.deviceName)"
             } catch {
-                activeTransfer = "Send failed: \(error.localizedDescription)"
+                peerProgress.removeValue(forKey: peer.id)
+                statusMessage = "Send failed: \(error.localizedDescription)"
                 try? await Task.sleep(for: .seconds(5))
-                activeTransfer = nil
+                statusMessage = "Ready — \(config.deviceName)"
             }
         }
     }

@@ -116,6 +116,7 @@ async fn receive_to_disk(
         let (bps, eta) = speed_eta(total_received, session.total_bytes, session.start_instant);
         let _ = state.event_tx.try_send(AppEvent::TransferProgress {
             transfer_id: params.session_id.clone(),
+            peer_fingerprint: session.peer_fingerprint.clone(),
             bytes_done: total_received,
             total_bytes: session.total_bytes,
             bytes_per_sec: bps,
@@ -137,6 +138,7 @@ async fn receive_to_disk(
                 .event_tx
                 .send(AppEvent::TransferError {
                     transfer_id: params.session_id.clone(),
+                    peer_fingerprint: session.peer_fingerprint.clone(),
                     message: "Checksum mismatch — transfer discarded".into(),
                 })
                 .await;
@@ -161,6 +163,7 @@ async fn receive_to_disk(
             .event_tx
             .send(AppEvent::TransferComplete {
                 transfer_id: params.session_id.clone(),
+                peer_fingerprint: session.peer_fingerprint.clone(),
                 saved_to: Some(session.download_dir.clone()),
             })
             .await;

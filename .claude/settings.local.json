@@ -35,7 +35,8 @@
       "Bash(sort -k5 -rn)",
       "Bash(find /Users/mozart/Dev/Tunnel -name .env* -o -name *secret* -o -name *key* -o -name *credentials*)",
       "Bash(grep -ri \"gmail\\\\|@\\\\|password\\\\|secret\\\\|api.key\\\\|auth\\\\|token\\\\|private\\\\|key\" /Users/mozart/Dev/Tunnel/linux/data --include=*.xml* --include=*.desktop* --include=*.yaml)",
-      "Bash(find /Users/mozart/Dev/Tunnel -name *.ps1 -o -name *.cs -o -name *.csproj)"
+      "Bash(find /Users/mozart/Dev/Tunnel -name *.ps1 -o -name *.cs -o -name *.csproj)",
+      "Bash(command -v cargo)"
     ]
   }
 }

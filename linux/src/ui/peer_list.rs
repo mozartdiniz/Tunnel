@@ -6,6 +6,7 @@ use gtk4::prelude::*;
 use libadwaita::prelude::*;
 
 use crate::app::AppCommand;
+use crate::ui::{format_eta, human_bytes, TransferState};
 
 pub fn add_peer_row(
     list_box: &gtk4::ListBox,
@@ -25,14 +26,13 @@ pub fn add_peer_row(
 
     let row = libadwaita::ActionRow::builder()
         .title(name)
-        .subtitle(&addr.ip().to_string())
+        .subtitle("Drop a file to send")
         .activatable(false)
         .build();
 
     row.set_widget_name(id);
 
-    // Drop target: collect all dropped files into a single SendFiles command
-    // so multi-file and folder drops are sent as one transfer (roadmap 3.7).
+    // Drop target: collect all dropped files into a single SendFiles command.
     let drop = gtk4::DropTarget::new(gdk::FileList::static_type(), gdk::DragAction::COPY);
     let cmd_tx = cmd_tx.clone();
     let peer_fp = id.to_string();
@@ -52,6 +52,57 @@ pub fn add_peer_row(
     });
     row.add_controller(drop);
     list_box.append(&row);
+}
+
+/// Update the subtitle of a peer row to reflect its current transfer state.
+pub fn update_peer_row_progress(
+    list_box: &gtk4::ListBox,
+    peer_id: &str,
+    state: &TransferState,
+) {
+    let mut child = list_box.first_child();
+    while let Some(widget) = child {
+        if widget.widget_name() == peer_id {
+            if let Some(row) = widget.downcast_ref::<libadwaita::ActionRow>() {
+                let subtitle = transfer_subtitle(state);
+                row.set_subtitle(&subtitle);
+            }
+            return;
+        }
+        child = widget.next_sibling();
+    }
+}
+
+fn transfer_subtitle(state: &TransferState) -> String {
+    match state {
+        TransferState::Idle => "Drop a file to send".to_string(),
+        TransferState::Transferring { bytes_done, total_bytes, bytes_per_sec, eta_secs } => {
+            let pct = if *total_bytes > 0 {
+                (*bytes_done as f64 / *total_bytes as f64 * 100.0) as u64
+            } else {
+                0
+            };
+            let speed = if *bytes_per_sec > 0 {
+                format!("  {}ps", human_bytes(*bytes_per_sec))
+            } else {
+                String::new()
+            };
+            let eta = match eta_secs {
+                Some(s) => format!("  ETA {}", format_eta(*s)),
+                None => String::new(),
+            };
+            format!(
+                "{}% · {} / {}{}{}",
+                pct,
+                human_bytes(*bytes_done),
+                human_bytes(*total_bytes),
+                speed,
+                eta
+            )
+        }
+        TransferState::Complete => "Transfer complete ✓".to_string(),
+        TransferState::Error(_) => "Drop a file to send".to_string(),
+    }
 }
 
 pub fn remove_peer_row(list_box: &gtk4::ListBox, id: &str) {

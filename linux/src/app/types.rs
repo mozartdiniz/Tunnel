@@ -28,6 +28,8 @@ pub enum AppEvent {
     },
     TransferProgress {
         transfer_id: String,
+        /// Full fingerprint of the remote peer — used to route progress to its row.
+        peer_fingerprint: String,
         bytes_done: u64,
         total_bytes: u64,
         /// Rolling average transfer speed in bytes/second.
@@ -37,12 +39,14 @@ pub enum AppEvent {
     },
     TransferComplete {
         transfer_id: String,
+        peer_fingerprint: String,
         /// Download directory on the receiver side; `None` on the sender side
         /// (the sender doesn't save files locally).
         saved_to: Option<PathBuf>,
     },
     TransferError {
         transfer_id: String,
+        peer_fingerprint: String,
         message: String,
     },
 }

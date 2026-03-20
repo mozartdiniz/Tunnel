@@ -17,7 +17,6 @@ use libadwaita::subclass::prelude::*;
 
 use crate::app::AppCommand;
 use crate::config::Config;
-use crate::ui::TransferState;
 
 #[derive(Default, CompositeTemplate)]
 #[template(resource = "/dev/tunnel/Tunnel/window.ui")]
@@ -27,10 +26,6 @@ pub struct Window {
     pub list_box: TemplateChild<gtk4::ListBox>,
     #[template_child]
     pub stack: TemplateChild<gtk4::Stack>,
-    #[template_child]
-    pub status_dot: TemplateChild<gtk4::Label>,
-    #[template_child]
-    pub progress_bar: TemplateChild<gtk4::ProgressBar>,
     #[template_child]
     pub window_title: TemplateChild<libadwaita::WindowTitle>,
     #[template_child]
@@ -49,8 +44,6 @@ pub struct Window {
     // ── Mutable UI state ─────────────────────────────────────────────────────
     /// Live peer map: fingerprint → (display name, socket address).
     pub peers: RefCell<HashMap<String, (String, SocketAddr)>>,
-    /// Current transfer lifecycle state — drives all progress-bar / status-dot updates.
-    pub transfer_state: RefCell<TransferState>,
 }
 
 #[glib::object_subclass]

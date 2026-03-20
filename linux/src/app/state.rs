@@ -16,6 +16,8 @@ use super::types::{AppEvent, PendingMap};
 /// In-progress receive session (between prepare-upload and the last upload call).
 #[derive(Clone)]
 pub struct SessionState {
+    /// Full fingerprint of the peer who initiated this session (sender side).
+    pub peer_fingerprint: String,
     pub files: HashMap<String, FileMetadata>,
     /// fileId → upload token
     pub tokens: HashMap<String, String>,

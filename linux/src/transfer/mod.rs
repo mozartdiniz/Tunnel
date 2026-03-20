@@ -67,11 +67,13 @@ pub async fn send_files(
     event_tx: async_channel::Sender<AppEvent>,
 ) -> Result<()> {
     let transfer_id = uuid::Uuid::new_v4().to_string();
+    let peer_fingerprint = req.peer_fingerprint.clone();
     let result = try_send_files(&transfer_id, req, tls, &event_tx).await;
     if let Err(ref e) = result {
         let _ = event_tx
             .send(AppEvent::TransferError {
                 transfer_id,
+                peer_fingerprint,
                 message: e.to_string(),
             })
             .await;
@@ -85,6 +87,7 @@ async fn try_send_files(
     tls: Arc<TlsStack>,
     event_tx: &async_channel::Sender<AppEvent>,
 ) -> Result<()> {
+    let peer_fp = req.peer_fingerprint.clone();
     let _inhibit = InhibitGuard::acquire("Sending files").await;
 
     // ── Prepare file list (zip directories) ──────────────────────────────────
@@ -222,6 +225,7 @@ async fn try_send_files(
         // Wrap stream to emit TransferProgress per chunk with speed/ETA.
         let event_tx_prog = event_tx.clone();
         let tid = transfer_id.to_string();
+        let pfp = peer_fp.clone();
         let bst = bytes_sent_total.clone();
         let progress_stream = base_stream.map(move |chunk| {
             if let Ok(ref c) = chunk {
@@ -229,6 +233,7 @@ async fn try_send_files(
                 let (bps, eta) = speed_eta(new_total, total_bytes, start_instant);
                 let _ = event_tx_prog.try_send(AppEvent::TransferProgress {
                     transfer_id: tid.clone(),
+                    peer_fingerprint: pfp.clone(),
                     bytes_done: new_total,
                     total_bytes,
                     bytes_per_sec: bps,
@@ -266,6 +271,7 @@ async fn try_send_files(
     let _ = event_tx
         .send(AppEvent::TransferComplete {
             transfer_id: transfer_id.to_string(),
+            peer_fingerprint: peer_fp,
             saved_to: None,
         })
         .await;

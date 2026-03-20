@@ -99,7 +99,8 @@ extension AppModel {
         let dlDir = config.downloadDir
         let session = UploadSession(
             files: req.files, tokens: tokens, downloadDir: dlDir,
-            filesRemaining: fileCount, totalBytes: totalBytes
+            filesRemaining: fileCount, totalBytes: totalBytes,
+            senderFingerprint: req.info.fingerprint
         )
         sessions[sessionId] = session
 
@@ -159,9 +160,8 @@ extension AppModel {
                 try handle.write(contentsOf: chunk)
                 received += chunk.count
                 let totalReceived = UInt64(received)
-                transferProgress = session.totalBytes > 0
+                peerProgress[session.senderFingerprint] = session.totalBytes > 0
                     ? Double(totalReceived) / Double(session.totalBytes) : 0
-                activeTransfer = "Receiving \(fileMeta.fileName)…"
             }
             try handle.close()
         } catch {
@@ -180,16 +180,16 @@ extension AppModel {
 
         // Decrement file counter; notify UI when last file arrives.
         guard var s = sessions[sessionId] else { return }
+        let fp = s.senderFingerprint
         s.filesRemaining -= 1
         if s.filesRemaining <= 0 {
             sessions.removeValue(forKey: sessionId)
-            activeTransfer = "Received ✓"
-            transferProgress = 1
+            peerProgress[fp] = 1.0
             NSWorkspace.shared.selectFile(destURL.path,
                 inFileViewerRootedAtPath: destURL.deletingLastPathComponent().path)
             Task {
-                try? await Task.sleep(for: .seconds(3))
-                self.activeTransfer = nil
+                try? await Task.sleep(for: .seconds(1.2))
+                self.peerProgress.removeValue(forKey: fp)
             }
         } else {
             sessions[sessionId] = s
@@ -214,4 +214,5 @@ struct UploadSession {
     var downloadDir: URL
     var filesRemaining: Int
     var totalBytes: UInt64
+    var senderFingerprint: String
 }

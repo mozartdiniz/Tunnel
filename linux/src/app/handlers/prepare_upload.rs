@@ -78,6 +78,7 @@ pub async fn handler_prepare_upload(
     // Accepted — acquire sleep inhibitor then create the session.
     let inhibit = Arc::new(InhibitGuard::acquire("Receiving files").await);
     let session = SessionState {
+        peer_fingerprint: sender_fp.clone(),
         files: req.files.clone(),
         tokens: tokens.clone(),
         download_dir: state.download_dir.read().await.clone(),
