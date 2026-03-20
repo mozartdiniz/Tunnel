@@ -39,6 +39,7 @@ Write-Ok "Dependencies are ready."
 # 3. Build
 Write-Step "Compiling for $TARGET..."
 cargo build --release --target $TARGET
+if ($LASTEXITCODE -ne 0) { Write-Err "cargo build failed (exit code $LASTEXITCODE)" }
 Write-Ok "Build complete."
 
 # 4. Prepare target/release for cargo-packager

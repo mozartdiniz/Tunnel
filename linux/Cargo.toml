@@ -27,7 +27,7 @@ futures = "0.3"
 # --- UDP Socket Options (SO_REUSEPORT for multicast) ---
 socket2 = "0.5"
 # Network interface enumeration (multi-interface multicast on Windows)
-if_addrs = "0.6"
+if-addrs = "0.6"
 
 # --- Security & TLS ---
 # Self-signed certs + TOFU (Trust On First Use)
