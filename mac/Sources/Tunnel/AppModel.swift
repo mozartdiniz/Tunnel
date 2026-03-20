@@ -10,8 +10,8 @@ final class AppModel: ObservableObject {
 
     @Published var peers: [Peer] = []
     @Published var statusMessage: String = "Starting…"
-    /// Per-peer transfer progress keyed by peer fingerprint (0.0–1.0).
-    @Published var peerProgress: [String: Double] = [:]
+    /// Per-peer transfer state keyed by peer fingerprint. Absence = idle.
+    @Published var peerProgress: [String: PeerTransferState] = [:]
     @Published var pendingRequest: PendingRequest?
     @Published var deviceName: String = ""
     @Published var downloadDir: URL = FileManager.default
@@ -101,11 +101,12 @@ final class AppModel: ObservableObject {
 
     func sendFile(to peer: Peer, fileURL: URL) {
         guard let tlsManager else { return }
-        peerProgress[peer.id] = 0
+        peerProgress[peer.id] = .transferring(bytesDone: 0, totalBytes: 0, bytesPerSec: 0, etaSecs: nil)
 
         Task {
             let alias = config.deviceName
             let fp: String = await tlsManager.localFingerprint
+            let startTime = Date()
             do {
                 try await sendFiles(
                     to: peer,
@@ -113,11 +114,20 @@ final class AppModel: ObservableObject {
                     senderAlias: alias,
                     senderFingerprint: fp,
                     tlsManager: tlsManager,
-                    progress: { [weak self] pct in
-                        Task { @MainActor [weak self] in self?.peerProgress[peer.id] = pct }
+                    progress: { [weak self] bytesDone, totalBytes in
+                        let elapsed = max(Date().timeIntervalSince(startTime), 0.1)
+                        let bps = UInt64(Double(bytesDone) / elapsed)
+                        let eta: UInt64? = bps > 0 && bytesDone < totalBytes
+                            ? UInt64((totalBytes - bytesDone) / bps) : nil
+                        Task { @MainActor [weak self] in
+                            self?.peerProgress[peer.id] = .transferring(
+                                bytesDone: bytesDone, totalBytes: totalBytes,
+                                bytesPerSec: bps, etaSecs: eta
+                            )
+                        }
                     }
                 )
-                peerProgress[peer.id] = 1.0
+                peerProgress[peer.id] = .complete
                 try? await Task.sleep(for: .seconds(1.2))
                 peerProgress.removeValue(forKey: peer.id)
             } catch TransferError.denied {
@@ -172,6 +182,13 @@ final class AppModel: ObservableObject {
         config.save()
         downloadDir = url
     }
+}
+
+// MARK: - PeerTransferState
+
+enum PeerTransferState {
+    case transferring(bytesDone: UInt64, totalBytes: UInt64, bytesPerSec: UInt64, etaSecs: UInt64?)
+    case complete
 }
 
 // MARK: - PendingRequest

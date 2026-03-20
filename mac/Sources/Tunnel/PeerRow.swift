@@ -9,8 +9,6 @@ struct PeerRow: View {
 
     @State private var isTargeted = false
 
-    private var progress: Double? { model.peerProgress[peer.id] }
-
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: "desktopcomputer")
@@ -41,31 +39,39 @@ struct PeerRow: View {
         }
     }
 
-    @ViewBuilder
-    private var transferSubtitle: some View {
-        if let pct = progress {
-            if pct >= 1.0 {
-                Text("Transfer complete ✓")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            } else {
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack {
-                        Text("\(Int(pct * 100))%")
-                            .font(.caption.monospacedDigit())
-                            .foregroundStyle(.secondary)
-                        Spacer()
-                    }
-                    ProgressView(value: pct)
-                        .progressViewStyle(.linear)
-                        .frame(maxWidth: 160)
-                }
-            }
-        } else {
-            Text("Drop a file to send")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+    private var subtitleText: String {
+        switch model.peerProgress[peer.id] {
+        case nil:
+            return "Drop a file to send"
+        case .complete:
+            return "Transfer complete ✓"
+        case .transferring(let bytesDone, let totalBytes, let bytesPerSec, let etaSecs):
+            let pct = totalBytes > 0 ? Int(Double(bytesDone) / Double(totalBytes) * 100) : 0
+            var text = "\(pct)% · \(humanBytes(bytesDone)) / \(humanBytes(totalBytes))"
+            if bytesPerSec > 0 { text += "  \(humanBytes(bytesPerSec))ps" }
+            if let eta = etaSecs { text += "  ETA \(formatEta(eta))" }
+            return text
         }
+    }
+
+    private var transferSubtitle: some View {
+        Text(subtitleText)
+            .font(.caption)
+            .foregroundStyle(.secondary)
+    }
+
+    private func humanBytes(_ b: UInt64) -> String {
+        let k: UInt64 = 1024, m = k * 1024, g = m * 1024
+        if b >= g { return String(format: "%.1f GB", Double(b) / Double(g)) }
+        if b >= m { return String(format: "%.1f MB", Double(b) / Double(m)) }
+        if b >= k { return String(format: "%.1f KB", Double(b) / Double(k)) }
+        return "\(b) B"
+    }
+
+    private func formatEta(_ secs: UInt64) -> String {
+        if secs >= 3600 { return "\(secs / 3600)h \((secs % 3600) / 60)m" }
+        if secs >= 60   { return "\(secs / 60)m \(secs % 60)s" }
+        return "\(secs)s"
     }
 
     private func handleDrop(providers: [NSItemProvider]) -> Bool {

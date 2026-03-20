@@ -160,8 +160,14 @@ extension AppModel {
                 try handle.write(contentsOf: chunk)
                 received += chunk.count
                 let totalReceived = UInt64(received)
-                peerProgress[session.senderFingerprint] = session.totalBytes > 0
-                    ? Double(totalReceived) / Double(session.totalBytes) : 0
+                let elapsed = max(session.startTime.timeIntervalSinceNow * -1, 0.1)
+                let bps = UInt64(Double(totalReceived) / elapsed)
+                let eta: UInt64? = bps > 0 && totalReceived < session.totalBytes
+                    ? UInt64((session.totalBytes - totalReceived) / bps) : nil
+                peerProgress[session.senderFingerprint] = .transferring(
+                    bytesDone: totalReceived, totalBytes: session.totalBytes,
+                    bytesPerSec: bps, etaSecs: eta
+                )
             }
             try handle.close()
         } catch {
@@ -184,7 +190,7 @@ extension AppModel {
         s.filesRemaining -= 1
         if s.filesRemaining <= 0 {
             sessions.removeValue(forKey: sessionId)
-            peerProgress[fp] = 1.0
+            peerProgress[fp] = .complete
             NSWorkspace.shared.selectFile(destURL.path,
                 inFileViewerRootedAtPath: destURL.deletingLastPathComponent().path)
             Task {
@@ -215,4 +221,5 @@ struct UploadSession {
     var filesRemaining: Int
     var totalBytes: UInt64
     var senderFingerprint: String
+    var startTime: Date = Date()
 }

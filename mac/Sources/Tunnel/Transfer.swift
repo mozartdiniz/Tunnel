@@ -16,7 +16,7 @@ func sendFiles(
     senderAlias: String,
     senderFingerprint: String,
     tlsManager: TLSManager,
-    progress: @escaping (Double) -> Void
+    progress: @escaping (UInt64, UInt64) -> Void  // (bytesDone, totalBytes)
 ) async throws {
     let baseURL = "https://\(peer.host):\(peer.port)"
 
@@ -102,28 +102,47 @@ func sendFiles(
         uploadReq.setValue("application/octet-stream", forHTTPHeaderField: "Content-Type")
         uploadReq.setValue(String(entry.size), forHTTPHeaderField: "Content-Length")
 
+        // Report progress during this file's upload via the delegate.
+        let bytesDoneBeforeFile = bytesDone
+        delegate.progressHandler = { sentThisFile in
+            let overall = bytesDoneBeforeFile + UInt64(sentThisFile)
+            progress(overall, totalBytes)
+        }
+
         let (_, uploadResp) = try await session.upload(for: uploadReq, from: entry.data)
+        delegate.progressHandler = nil
         guard let uploadHttp = uploadResp as? HTTPURLResponse, uploadHttp.statusCode == 200 else {
             throw TransferError.uploadFailed
         }
 
         bytesDone += entry.size
-        let pct = totalBytes > 0 ? Double(bytesDone) / Double(totalBytes) : 1.0
-        progress(pct)
     }
+    progress(totalBytes, totalBytes)
 }
 
 // MARK: - TOFU URLSession delegate
 
 /// Verifies the receiver's self-signed cert using TOFU keyed by SHA-256 fingerprint.
 /// First contact is trusted; subsequent contacts must match the stored fingerprint.
-final class TofuSessionDelegate: NSObject, URLSessionDelegate {
+final class TofuSessionDelegate: NSObject, URLSessionDelegate, URLSessionTaskDelegate {
     private let tlsManager: TLSManager
     private let peerFingerprint: String  // peer's announced identity from UDP discovery
+    /// Called during upload with the number of bytes sent for the current file.
+    var progressHandler: ((Int64) -> Void)?
 
     init(tlsManager: TLSManager, peerFingerprint: String) {
         self.tlsManager = tlsManager
         self.peerFingerprint = peerFingerprint
+    }
+
+    func urlSession(
+        _ session: URLSession,
+        task: URLSessionTask,
+        didSendBodyData bytesSent: Int64,
+        totalBytesSent: Int64,
+        totalBytesExpectedToSend: Int64
+    ) {
+        progressHandler?(totalBytesSent)
     }
 
     func urlSession(
