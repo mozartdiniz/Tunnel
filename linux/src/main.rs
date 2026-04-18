@@ -7,6 +7,7 @@ mod config;
 mod discovery;
 mod inhibit;
 mod localsend;
+mod sync;
 mod tls;
 mod transfer;
 mod ui;

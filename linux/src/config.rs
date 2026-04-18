@@ -10,6 +10,9 @@ pub struct Config {
     pub device_name: String,
     /// Where received files are saved.
     pub download_dir: PathBuf,
+    /// Folder kept in sync with peers that also have sync configured.
+    #[serde(default)]
+    pub sync_folder: Option<PathBuf>,
 }
 
 impl Config {
@@ -65,6 +68,7 @@ impl Default for Config {
         Self {
             device_name,
             download_dir,
+            sync_folder: None,
         }
     }
 }

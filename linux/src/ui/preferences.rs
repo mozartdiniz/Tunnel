@@ -54,6 +54,43 @@ pub fn show_preferences(
     folder_row.add_suffix(&choose_btn);
     transfers_group.add(&folder_row);
     page.add(&transfers_group);
+
+    // ── Sync group ────────────────────────────────────────────────────────────
+    let sync_group = libadwaita::PreferencesGroup::builder()
+        .title("Sync")
+        .description("When both devices have a sync folder set, files are kept in sync automatically.")
+        .build();
+
+    let sync_subtitle = config
+        .borrow()
+        .sync_folder
+        .as_ref()
+        .map(|p| p.display().to_string())
+        .unwrap_or_else(|| "Not configured".to_string());
+
+    let sync_row = libadwaita::ActionRow::builder()
+        .title("Sync Folder")
+        .subtitle(&sync_subtitle)
+        .activatable(true)
+        .build();
+
+    let sync_choose_btn = gtk4::Button::builder()
+        .icon_name("folder-open-symbolic")
+        .valign(gtk4::Align::Center)
+        .css_classes(["flat"])
+        .tooltip_text("Choose sync folder")
+        .build();
+    let sync_clear_btn = gtk4::Button::builder()
+        .icon_name("edit-clear-symbolic")
+        .valign(gtk4::Align::Center)
+        .css_classes(["flat"])
+        .tooltip_text("Clear sync folder")
+        .build();
+    sync_row.add_suffix(&sync_clear_btn);
+    sync_row.add_suffix(&sync_choose_btn);
+    sync_group.add(&sync_row);
+    page.add(&sync_group);
+
     prefs.add(&page);
 
     let config_pick = config.clone();
@@ -78,6 +115,34 @@ pub fn show_preferences(
         );
     }));
 
+    let config_sync = config.clone();
+    sync_choose_btn.connect_clicked(glib::clone!(#[weak] sync_row, #[weak] prefs, move |_| {
+        let dialog = gtk4::FileDialog::builder()
+            .title("Choose Sync Folder")
+            .modal(true)
+            .build();
+        let config_c = config_sync.clone();
+        let row_c = sync_row.clone();
+        dialog.select_folder(
+            Some(&prefs).map(|w| w.upcast_ref::<gtk4::Window>()),
+            gtk4::gio::Cancellable::NONE,
+            move |result| {
+                if let Ok(file) = result {
+                    if let Some(path) = file.path() {
+                        config_c.borrow_mut().sync_folder = Some(path.clone());
+                        row_c.set_subtitle(&path.display().to_string());
+                    }
+                }
+            },
+        );
+    }));
+
+    let config_clear = config.clone();
+    sync_clear_btn.connect_clicked(glib::clone!(#[weak] sync_row, move |_| {
+        config_clear.borrow_mut().sync_folder = None;
+        sync_row.set_subtitle("Not configured");
+    }));
+
     prefs.connect_close_request(glib::clone!(
         #[weak] name_row,
         #[upgrade_or] glib::Propagation::Proceed,
@@ -92,6 +157,7 @@ pub fn show_preferences(
             }
 
             let _ = cmd_tx.try_send(AppCommand::SetDownloadDir(cfg.download_dir.clone()));
+            let _ = cmd_tx.try_send(AppCommand::SetSyncFolder(cfg.sync_folder.clone()));
             let _ = cfg.save();
 
             glib::Propagation::Proceed

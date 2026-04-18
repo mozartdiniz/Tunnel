@@ -34,6 +34,8 @@ pub struct SessionState {
     /// Released automatically when the last Arc clone is dropped (RAII).
     #[allow(dead_code)]
     pub inhibit: Arc<InhibitGuard>,
+    /// True when this session is a sync transfer (auto-accepted, no dialog).
+    pub is_sync: bool,
 }
 
 /// State shared between all axum request handlers (and the command loop).
@@ -44,4 +46,8 @@ pub struct AppState {
     pub sessions: Arc<Mutex<HashMap<String, SessionState>>>,
     pub event_tx: async_channel::Sender<AppEvent>,
     pub download_dir: Arc<RwLock<PathBuf>>,
+    pub sync_folder: Arc<RwLock<Option<PathBuf>>>,
+    /// Paths written by sync receives, with the time they were written.
+    /// Used to suppress re-sending files that we just received.
+    pub recently_synced: Arc<Mutex<HashMap<PathBuf, std::time::Instant>>>,
 }

@@ -28,6 +28,10 @@ pub struct DeviceInfo {
     /// Present in UDP announcements only; absent in prepare-upload.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub announce: Option<bool>,
+    /// Set to `true` to signal that this device has a sync folder configured.
+    /// Other LocalSend clients that don't implement sync simply ignore this field.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sync: Option<bool>,
 }
 
 /// Per-file metadata inside a prepare-upload request.
@@ -78,6 +82,7 @@ mod tests {
             protocol: "https".to_string(),
             download: false,
             announce: Some(true),
+            sync: None,
         }
     }
 
@@ -113,6 +118,7 @@ mod tests {
             protocol: "https".to_string(),
             download: false,
             announce: None,
+            sync: None,
         };
         let json = serde_json::to_string(&info).unwrap();
         assert!(!json.contains("deviceModel"), "None fields must be absent: {json}");

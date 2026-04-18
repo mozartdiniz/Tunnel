@@ -20,6 +20,7 @@
 use std::collections::HashSet;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
 use anyhow::Result;
@@ -34,12 +35,19 @@ const PEER_EXPIRY_SECS: u64 = 30;
 
 /// Events yielded by the browse task and the subnet scanner.
 pub enum DiscoveryEvent {
-    PeerFound { fingerprint: String, alias: String, addr: IpAddr, port: u16 },
+    PeerFound { fingerprint: String, alias: String, addr: IpAddr, port: u16, sync_enabled: bool },
     PeerLost { fingerprint: String },
 }
 
 pub struct Discovery {
     fingerprint: String,
+    sync_enabled: Arc<AtomicBool>,
+}
+
+impl Discovery {
+    pub fn set_sync_enabled(&self, enabled: bool) {
+        self.sync_enabled.store(enabled, Ordering::Relaxed);
+    }
 }
 
 // ── Interface helpers ────────────────────────────────────────────────────────
@@ -170,6 +178,7 @@ pub async fn scan_subnets(own_fingerprint: &str) -> Vec<DiscoveryEvent> {
                     alias: info.alias,
                     addr: IpAddr::V4(ip),
                     port: info.port,
+                    sync_enabled: info.sync == Some(true),
                 })
             })
         })
@@ -188,7 +197,7 @@ pub async fn scan_subnets(own_fingerprint: &str) -> Vec<DiscoveryEvent> {
 
 impl Discovery {
     pub fn new(fingerprint: String) -> Self {
-        Self { fingerprint }
+        Self { fingerprint, sync_enabled: Arc::new(AtomicBool::new(false)) }
     }
 
     /// Send a UDP multicast announcement so other devices can discover us.
@@ -293,6 +302,7 @@ impl Discovery {
                                     alias: info.alias,
                                     addr: src.ip(),
                                     port: info.port,
+                                    sync_enabled: info.sync == Some(true),
                                 })
                                 .await;
 
@@ -327,6 +337,7 @@ impl Discovery {
     }
 
     fn build_info(&self, alias: &str, port: u16, announce: Option<bool>) -> DeviceInfo {
+        let sync = if self.sync_enabled.load(Ordering::Relaxed) { Some(true) } else { None };
         DeviceInfo {
             alias: alias.to_string(),
             version: "2.0".to_string(),
@@ -337,6 +348,7 @@ impl Discovery {
             protocol: "https".to_string(),
             download: false,
             announce,
+            sync,
         }
     }
 }

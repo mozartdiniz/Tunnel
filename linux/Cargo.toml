@@ -72,6 +72,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 # Bridge between tokio tasks and GTK event loop
 async-channel = "2"
+notify = "6"
 
 # --- Platform-Specific Dependencies ---
 

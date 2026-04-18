@@ -36,39 +36,55 @@ pub async fn handler_prepare_upload(
         .map(|id| (id.clone(), uuid::Uuid::new_v4().to_string()))
         .collect();
 
-    // Register the decision channel before notifying the UI.
-    let (decision_tx, decision_rx) = tokio::sync::oneshot::channel::<bool>();
-    state.pending.lock().await.insert(session_id.clone(), decision_tx);
+    // Check if this is a sync transfer: sender has sync=true and we have a sync folder.
+    let sync_folder = state.sync_folder.read().await.clone();
+    let is_sync = req.info.sync == Some(true) && sync_folder.is_some();
 
-    // Use the first file for the UI notification.
-    let first_name = req
-        .files
-        .values()
-        .next()
-        .map(|f| f.file_name.clone())
-        .unwrap_or_else(|| "file".to_string());
+    let (accepted, dest_dir) = if is_sync {
+        // Auto-accept — no user dialog needed.
+        tracing::info!("Auto-accepting sync transfer from {sender_alias}");
+        (true, sync_folder.unwrap())
+    } else {
+        // Register the decision channel before notifying the UI.
+        let (decision_tx, decision_rx) = tokio::sync::oneshot::channel::<bool>();
+        state.pending.lock().await.insert(session_id.clone(), decision_tx);
 
-    let fp_short = sender_fp[..sender_fp.len().min(16)].to_string();
-    let _ = state
-        .event_tx
-        .send(AppEvent::IncomingRequest {
-            transfer_id: session_id.clone(),
-            sender_name: sender_alias,
-            file_name: first_name,
-            file_count,
-            size_bytes: total_bytes,
-            peer_fingerprint: fp_short,
-        })
-        .await;
+        // Use the first file for the UI notification.
+        let first_name = req
+            .files
+            .values()
+            .next()
+            .map(|f| f.file_name.clone())
+            .unwrap_or_else(|| "file".to_string());
 
-    // Await user decision with a timeout.
-    let accepted = match tokio::time::timeout(Duration::from_secs(DECISION_TIMEOUT_SECS), decision_rx).await {
-        Ok(Ok(v)) => v,
-        _ => {
-            // Timeout or channel closed — clean up the stale pending entry.
-            state.pending.lock().await.remove(&session_id);
-            false
-        }
+        let fp_short = sender_fp[..sender_fp.len().min(16)].to_string();
+        let _ = state
+            .event_tx
+            .send(AppEvent::IncomingRequest {
+                transfer_id: session_id.clone(),
+                sender_name: sender_alias,
+                file_name: first_name,
+                file_count,
+                size_bytes: total_bytes,
+                peer_fingerprint: fp_short,
+            })
+            .await;
+
+        // Await user decision with a timeout.
+        let accepted = match tokio::time::timeout(
+            Duration::from_secs(DECISION_TIMEOUT_SECS),
+            decision_rx,
+        )
+        .await
+        {
+            Ok(Ok(v)) => v,
+            _ => {
+                state.pending.lock().await.remove(&session_id);
+                false
+            }
+        };
+
+        (accepted, state.download_dir.read().await.clone())
     };
 
     if !accepted {
@@ -81,12 +97,13 @@ pub async fn handler_prepare_upload(
         peer_fingerprint: sender_fp.clone(),
         files: req.files.clone(),
         tokens: tokens.clone(),
-        download_dir: state.download_dir.read().await.clone(),
+        download_dir: dest_dir,
         files_remaining: Arc::new(AtomicUsize::new(file_count)),
         total_bytes,
         bytes_received: Arc::new(AtomicU64::new(0)),
         start_instant: Instant::now(),
         inhibit,
+        is_sync,
     };
     state.sessions.lock().await.insert(session_id.clone(), session);
 

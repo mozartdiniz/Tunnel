@@ -8,7 +8,7 @@
 mod helpers;
 mod zip;
 
-pub use helpers::{sanitize_filename, speed_eta, MAX_FILE_SIZE};
+pub use helpers::{sanitize_filename, sanitize_sync_path, speed_eta, MAX_FILE_SIZE};
 
 use std::collections::HashMap;
 use std::net::SocketAddr;
@@ -43,6 +43,9 @@ pub struct SendRequest {
     pub paths: Vec<PathBuf>,
     pub sender_name: String,
     pub sender_fingerprint: String,
+    /// When set, this is a sync transfer: `file_name` in metadata carries the
+    /// relative path from this root, and `DeviceInfo.sync` is set to `true`.
+    pub sync_root: Option<PathBuf>,
 }
 
 /// Metadata and on-disk location for a single file to be sent.
@@ -118,11 +121,24 @@ async fn try_send_files(
                     path.display()
                 );
             }
-            let name = path
-                .file_name()
-                .and_then(|n| n.to_str())
-                .unwrap_or("file")
-                .to_string();
+            // For sync transfers, preserve the relative path from sync_root.
+            let name = if let Some(ref root) = req.sync_root {
+                path.strip_prefix(root)
+                    .ok()
+                    .and_then(|p| p.to_str())
+                    .map(|s| s.replace(std::path::MAIN_SEPARATOR, "/"))
+                    .unwrap_or_else(|| {
+                        path.file_name()
+                            .and_then(|n| n.to_str())
+                            .unwrap_or("file")
+                            .to_string()
+                    })
+            } else {
+                path.file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or("file")
+                    .to_string()
+            };
             // Stream SHA-256 to avoid loading the entire file into memory.
             let sha256 = {
                 let mut file = tokio::fs::File::open(path).await?;
@@ -186,6 +202,7 @@ async fn try_send_files(
             protocol: "https".to_string(),
             download: false,
             announce: None,
+            sync: req.sync_root.as_ref().map(|_| true),
         },
         files: files_meta,
     };

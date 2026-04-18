@@ -67,6 +67,8 @@ pub enum AppCommand {
     SetDeviceName(String),
     /// User changed download folder in settings.
     SetDownloadDir(PathBuf),
+    /// User changed sync folder in settings (None = disabled).
+    SetSyncFolder(Option<PathBuf>),
     /// User pressed the refresh button — restart peer discovery.
     RefreshPeers,
 }

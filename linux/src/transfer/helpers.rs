@@ -32,6 +32,27 @@ pub fn speed_eta(bytes_done: u64, total_bytes: u64, start: Instant) -> (u64, Opt
     (bps as u64, eta)
 }
 
+/// Sanitize a relative path from a sync peer.
+/// Each component is individually sanitized; `.` and `..` are dropped entirely.
+/// Returns a `PathBuf` safe to join onto the sync folder.
+pub fn sanitize_sync_path(name: &str) -> std::path::PathBuf {
+    let normalized = name.replace('\\', "/");
+    let mut out = std::path::PathBuf::new();
+    for component in normalized.split('/') {
+        if component.is_empty() || component == "." || component == ".." {
+            continue;
+        }
+        let safe = sanitize_filename(component);
+        if !safe.is_empty() {
+            out.push(safe);
+        }
+    }
+    if out.as_os_str().is_empty() {
+        out.push("file");
+    }
+    out
+}
+
 /// Sanitize a filename from an untrusted peer: replace path-separator and
 /// shell-special characters with underscores.
 pub fn sanitize_filename(name: &str) -> String {

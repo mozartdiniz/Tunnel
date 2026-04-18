@@ -17,7 +17,7 @@ use tokio::io::{AsyncWriteExt, BufWriter};
 use crate::app::state::{AppState, SessionState};
 use crate::app::types::AppEvent;
 use crate::localsend::FileMetadata;
-use crate::transfer::{sanitize_filename, speed_eta, MAX_FILE_SIZE};
+use crate::transfer::{sanitize_filename, sanitize_sync_path, speed_eta, MAX_FILE_SIZE};
 
 #[derive(serde::Deserialize)]
 pub struct UploadParams {
@@ -60,8 +60,11 @@ pub async fn handler_upload(
     }
 
     // ── Write phase — temp file is created; single cleanup site on error ──────
-    let safe_name = sanitize_filename(&file_meta.file_name);
-    let dest_path = session.download_dir.join(&safe_name);
+    let dest_path = if session.is_sync {
+        session.download_dir.join(sanitize_sync_path(&file_meta.file_name))
+    } else {
+        session.download_dir.join(sanitize_filename(&file_meta.file_name))
+    };
     let temp_path = session
         .download_dir
         .join(format!(".{}.{}.tmp", params.session_id, params.file_id));
@@ -89,6 +92,16 @@ async fn receive_to_disk(
     temp_path: &Path,
     dest_path: &Path,
 ) -> Result<axum::response::Response, axum::response::Response> {
+    // For sync transfers, ensure parent directories exist.
+    if session.is_sync {
+        if let Some(parent) = dest_path.parent() {
+            tokio::fs::create_dir_all(parent).await.map_err(|e| {
+                tracing::error!("Failed to create sync dir: {e}");
+                StatusCode::INTERNAL_SERVER_ERROR.into_response()
+            })?;
+        }
+    }
+
     let dest_file = tokio::fs::File::create(temp_path).await.map_err(|e| {
         tracing::error!("Failed to create temp file: {e}");
         StatusCode::INTERNAL_SERVER_ERROR.into_response()
@@ -151,6 +164,14 @@ async fn receive_to_disk(
         tracing::error!("Rename failed: {e}");
         StatusCode::INTERNAL_SERVER_ERROR.into_response()
     })?;
+
+    // Record sync receives so the file watcher won't re-send what we just got.
+    if session.is_sync {
+        let mut rs = state.recently_synced.lock().await;
+        let now = std::time::Instant::now();
+        rs.retain(|_, t| now.duration_since(*t) < std::time::Duration::from_secs(10));
+        rs.insert(dest_path.to_path_buf(), now);
+    }
 
     tracing::info!("Received '{}' → '{}'", file_meta.file_name, dest_path.display());
 

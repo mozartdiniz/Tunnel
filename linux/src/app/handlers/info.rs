@@ -11,6 +11,7 @@ pub async fn handler_device_info(
     State(state): State<Arc<AppState>>,
 ) -> Json<DeviceInfo> {
     let alias = state.device_name.read().await.clone();
+    let sync = if state.sync_folder.read().await.is_some() { Some(true) } else { None };
     Json(DeviceInfo {
         alias,
         version: "2.0".to_string(),
@@ -21,5 +22,6 @@ pub async fn handler_device_info(
         protocol: "https".to_string(),
         download: false,
         announce: None,
+        sync,
     })
 }
