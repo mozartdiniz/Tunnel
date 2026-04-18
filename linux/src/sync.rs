@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use anyhow::Result;
-use notify::{EventKind, RecommendedWatcher, RecursiveMode, Watcher, event::ModifyKind};
+use notify::{EventKind, RecommendedWatcher, RecursiveMode, Watcher, event::{ModifyKind, RenameMode}};
 use tokio::sync::mpsc;
 
 pub struct SyncWatcher {
@@ -18,7 +18,16 @@ pub fn start_sync_watcher(folder: PathBuf) -> Result<(mpsc::UnboundedReceiver<Pa
         let Ok(event) = res else { return };
         let relevant = matches!(
             event.kind,
-            EventKind::Create(_) | EventKind::Modify(ModifyKind::Data(_))
+            // Linux/macOS: content-change events.
+            EventKind::Create(_)
+                | EventKind::Modify(ModifyKind::Data(_))
+                // Windows (ReadDirectoryChangesW) emits ModifyKind::Any for
+                // FILE_ACTION_MODIFIED instead of Data(_).
+                | EventKind::Modify(ModifyKind::Any)
+                // Rename-on-save: many editors write a temp file then rename it
+                // to the final path. This fires on all platforms but is the
+                // primary content-change signal on Windows for such editors.
+                | EventKind::Modify(ModifyKind::Name(RenameMode::To))
         );
         if !relevant {
             return;

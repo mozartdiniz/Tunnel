@@ -39,7 +39,8 @@
       "Bash(command -v cargo)",
       "Bash(grep -r \"icon\" /Users/mozart/Dev/Tunnel/linux/build-windows.*)",
       "Bash(identify /Users/mozart/Dev/Tunnel/icon/app_icon.png)",
-      "Bash(ls /Users/mozart/Dev/Tunnel/LICENSE*)"
+      "Bash(ls /Users/mozart/Dev/Tunnel/LICENSE*)",
+      "Bash(cargo metadata *)"
     ]
   }
 }
