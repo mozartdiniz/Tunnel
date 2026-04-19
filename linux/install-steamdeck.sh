@@ -88,6 +88,7 @@ fi
 
 # ── 6. Build and install Tunnel ───────────────────────────────────────────────
 step "Building and installing Tunnel…"
+export PKG_CONFIG_PATH="/usr/lib/pkgconfig:/usr/share/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
 bash ./install.sh
 
 # ── 7. PATH reminder ──────────────────────────────────────────────────────────
