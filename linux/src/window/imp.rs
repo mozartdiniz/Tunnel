@@ -44,6 +44,10 @@ pub struct Window {
     // ── Mutable UI state ─────────────────────────────────────────────────────
     /// Live peer map: fingerprint → (display name, socket address).
     pub peers: RefCell<HashMap<String, (String, SocketAddr)>>,
+    /// Pending idle-reset timers for sync peer rows, keyed by peer fingerprint.
+    /// Cancelled and rescheduled on each sync TransferComplete so the row only
+    /// resets after the last file in a batch finishes.
+    pub sync_reset_source: RefCell<HashMap<String, glib::SourceId>>,
 }
 
 #[glib::object_subclass]

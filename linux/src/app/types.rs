@@ -36,6 +36,7 @@ pub enum AppEvent {
         bytes_per_sec: u64,
         /// Estimated seconds remaining (None while speed is too low to estimate).
         eta_secs: Option<u64>,
+        is_sync: bool,
     },
     TransferComplete {
         transfer_id: String,
@@ -43,6 +44,7 @@ pub enum AppEvent {
         /// Download directory on the receiver side; `None` on the sender side
         /// (the sender doesn't save files locally).
         saved_to: Option<PathBuf>,
+        is_sync: bool,
     },
     TransferError {
         transfer_id: String,

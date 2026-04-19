@@ -20,6 +20,9 @@ pub enum TransferState {
         eta_secs: Option<u64>,
     },
 
+    /// Background sync transfer in progress — no per-file stats shown.
+    Syncing,
+
     /// Transfer just finished successfully. Progress bar sits at 100% briefly
     /// before `Window` transitions back to `Idle` via a 1.2 s timeout.
     Complete,

@@ -134,6 +134,7 @@ async fn receive_to_disk(
             total_bytes: session.total_bytes,
             bytes_per_sec: bps,
             eta_secs: eta,
+            is_sync: session.is_sync,
         });
     }
 
@@ -159,19 +160,19 @@ async fn receive_to_disk(
         }
     }
 
-    // Atomic rename to final destination.
-    tokio::fs::rename(temp_path, dest_path).await.map_err(|e| {
-        tracing::error!("Rename failed: {e}");
-        StatusCode::INTERNAL_SERVER_ERROR.into_response()
-    })?;
-
-    // Record sync receives so the file watcher won't re-send what we just got.
+    // Record before rename so the watcher can't fire between rename and insert.
     if session.is_sync {
         let mut rs = state.recently_synced.lock().await;
         let now = std::time::Instant::now();
         rs.retain(|_, t| now.duration_since(*t) < std::time::Duration::from_secs(10));
         rs.insert(dest_path.to_path_buf(), now);
     }
+
+    // Atomic rename to final destination.
+    tokio::fs::rename(temp_path, dest_path).await.map_err(|e| {
+        tracing::error!("Rename failed: {e}");
+        StatusCode::INTERNAL_SERVER_ERROR.into_response()
+    })?;
 
     tracing::info!("Received '{}' → '{}'", file_meta.file_name, dest_path.display());
 
@@ -186,6 +187,7 @@ async fn receive_to_disk(
                 transfer_id: params.session_id.clone(),
                 peer_fingerprint: session.peer_fingerprint.clone(),
                 saved_to: Some(session.download_dir.clone()),
+                is_sync: session.is_sync,
             })
             .await;
     }

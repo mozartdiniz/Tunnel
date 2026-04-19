@@ -26,11 +26,43 @@ pub fn add_peer_row(
 
     let row = libadwaita::ActionRow::builder()
         .title(name)
-        .subtitle("Drop a file to send")
-        .activatable(false)
+        .subtitle("Tap or drop a file to send")
+        .activatable(true)
         .build();
 
     row.set_widget_name(id);
+
+    // Click: open file chooser dialog.
+    let cmd_tx_click = cmd_tx.clone();
+    let peer_fp_click = id.to_string();
+    row.connect_activated(move |row| {
+        let dialog = gtk4::FileDialog::builder()
+            .title("Select files to send")
+            .modal(true)
+            .build();
+        let window = row.root().and_downcast::<gtk4::Window>();
+        let cmd_tx3 = cmd_tx_click.clone();
+        let peer_fp3 = peer_fp_click.clone();
+        dialog.open_multiple(window.as_ref(), gtk4::gio::Cancellable::NONE, move |result| {
+            if let Ok(files) = result {
+                let paths: Vec<std::path::PathBuf> = (0..files.n_items())
+                    .filter_map(|i| {
+                        files
+                            .item(i)
+                            .and_downcast::<gtk4::gio::File>()
+                            .and_then(|f| f.path())
+                    })
+                    .collect();
+                if !paths.is_empty() {
+                    let _ = cmd_tx3.try_send(AppCommand::SendFiles {
+                        peer_addr: addr,
+                        peer_fingerprint: peer_fp3.clone(),
+                        paths,
+                    });
+                }
+            }
+        });
+    });
 
     // Drop target: collect all dropped files into a single SendFiles command.
     let drop = gtk4::DropTarget::new(gdk::FileList::static_type(), gdk::DragAction::COPY);
@@ -75,7 +107,7 @@ pub fn update_peer_row_progress(
 
 fn transfer_subtitle(state: &TransferState) -> String {
     match state {
-        TransferState::Idle => "Drop a file to send".to_string(),
+        TransferState::Idle => "Tap or drop a file to send".to_string(),
         TransferState::Transferring { bytes_done, total_bytes, bytes_per_sec, eta_secs } => {
             let pct = if *total_bytes > 0 {
                 (*bytes_done as f64 / *total_bytes as f64 * 100.0) as u64
@@ -100,6 +132,7 @@ fn transfer_subtitle(state: &TransferState) -> String {
                 eta
             )
         }
+        TransferState::Syncing => "Syncing…".to_string(),
         TransferState::Complete => "Transfer complete ✓".to_string(),
         TransferState::Error(_) => "Drop a file to send".to_string(),
     }

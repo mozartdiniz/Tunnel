@@ -116,36 +116,64 @@ impl Window {
                 total_bytes,
                 bytes_per_sec,
                 eta_secs,
+                is_sync,
                 ..
             } => {
-                crate::ui::update_peer_row_progress(
-                    &imp.list_box,
-                    &peer_fingerprint,
-                    &TransferState::Transferring { bytes_done, total_bytes, bytes_per_sec, eta_secs },
-                );
+                let state = if is_sync {
+                    TransferState::Syncing
+                } else {
+                    TransferState::Transferring { bytes_done, total_bytes, bytes_per_sec, eta_secs }
+                };
+                crate::ui::update_peer_row_progress(&imp.list_box, &peer_fingerprint, &state);
             }
 
-            AppEvent::TransferComplete { peer_fingerprint, saved_to, .. } => {
-                crate::ui::send_complete_notification(saved_to.as_deref());
+            AppEvent::TransferComplete { peer_fingerprint, saved_to, is_sync, .. } => {
+                if !is_sync {
+                    crate::ui::send_complete_notification(saved_to.as_deref());
+                }
                 crate::ui::update_peer_row_progress(
                     &imp.list_box,
                     &peer_fingerprint,
                     &TransferState::Complete,
                 );
-                // Reset to idle subtitle after a short pause.
-                let win_weak = self.downgrade();
-                glib::timeout_add_local_once(
-                    std::time::Duration::from_millis(1200),
-                    move || {
-                        if let Some(win) = win_weak.upgrade() {
-                            crate::ui::update_peer_row_progress(
-                                &win.imp().list_box,
-                                &peer_fingerprint,
-                                &TransferState::Idle,
-                            );
-                        }
-                    },
-                );
+
+                if is_sync {
+                    // Debounce: cancel any pending reset for this peer and reschedule.
+                    // The idle reset only fires after the last file in the batch completes.
+                    if let Some(src) = imp.sync_reset_source.borrow_mut().remove(&peer_fingerprint) {
+                        src.remove();
+                    }
+                    let win_weak = self.downgrade();
+                    let peer_fp = peer_fingerprint.clone();
+                    let source_id = glib::timeout_add_local_once(
+                        std::time::Duration::from_millis(2000),
+                        move || {
+                            if let Some(win) = win_weak.upgrade() {
+                                win.imp().sync_reset_source.borrow_mut().remove(&peer_fp);
+                                crate::ui::update_peer_row_progress(
+                                    &win.imp().list_box,
+                                    &peer_fp,
+                                    &TransferState::Idle,
+                                );
+                            }
+                        },
+                    );
+                    imp.sync_reset_source.borrow_mut().insert(peer_fingerprint, source_id);
+                } else {
+                    let win_weak = self.downgrade();
+                    glib::timeout_add_local_once(
+                        std::time::Duration::from_millis(1200),
+                        move || {
+                            if let Some(win) = win_weak.upgrade() {
+                                crate::ui::update_peer_row_progress(
+                                    &win.imp().list_box,
+                                    &peer_fingerprint,
+                                    &TransferState::Idle,
+                                );
+                            }
+                        },
+                    );
+                }
             }
 
             AppEvent::TransferError { peer_fingerprint, message, .. } => {

@@ -91,6 +91,7 @@ async fn try_send_files(
     event_tx: &async_channel::Sender<AppEvent>,
 ) -> Result<()> {
     let peer_fp = req.peer_fingerprint.clone();
+    let is_sync = req.sync_root.is_some();
     let _inhibit = InhibitGuard::acquire("Sending files").await;
 
     // ── Prepare file list (zip directories) ──────────────────────────────────
@@ -255,6 +256,7 @@ async fn try_send_files(
                     total_bytes,
                     bytes_per_sec: bps,
                     eta_secs: eta,
+                    is_sync,
                 });
             }
             chunk
@@ -290,6 +292,7 @@ async fn try_send_files(
             transfer_id: transfer_id.to_string(),
             peer_fingerprint: peer_fp,
             saved_to: None,
+            is_sync,
         })
         .await;
 
