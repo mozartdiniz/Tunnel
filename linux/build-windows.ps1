@@ -64,6 +64,23 @@ if (!(Test-Path $BUILD_DIR)) { New-Item -ItemType Directory -Path $BUILD_DIR | O
 Copy-Item "target\release\tunnel.exe" -Destination $OUTPUT -Force
 Copy-Item "$GTK_ROOT\bin\*.dll" -Destination $BUILD_DIR -Force
 
+# GTK runtime assets that must keep their relative layout beside the exe.
+# Mirrors the { src, target } resources in Cargo.toml -- keep the two in sync.
+#   share\glib-2.0\schemas : GLib resolves schemas from <prefix>\share;
+#     without gschemas.compiled, g_settings_schema_source_lookup fails at startup.
+#   lib\gdk-pixbuf-2.0      : loaders.cache references the SVG loader by this
+#     exact relative path, so the tree must be reproduced verbatim.
+foreach ($rel in @("share\glib-2.0\schemas", "lib\gdk-pixbuf-2.0")) {
+    $src = Join-Path $GTK_ROOT $rel
+    if (Test-Path $src) {
+        $dst = Join-Path $BUILD_DIR $rel
+        New-Item -ItemType Directory -Path $dst -Force | Out-Null
+        Copy-Item "$src\*" -Destination $dst -Recurse -Force
+    } else {
+        Write-Host "   WARNING: missing $src" -ForegroundColor Yellow
+    }
+}
+
 Write-Host "`nSuccess!" -ForegroundColor Green
 Write-Host "1. Portable version: .\$BUILD_DIR\tunnel.exe"
 Write-Host "2. MSI Installer: target\release\tunnel_0.1.0_x64_en-US.msi" -ForegroundColor Yellow

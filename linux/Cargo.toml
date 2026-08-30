@@ -105,9 +105,20 @@ icons = ["../../icon/app_icon.png"]
 # Top-level formats
 formats = ["wix", "deb", "appimage"]
 
-# Global resources - WiX will pull these into the root folder
+# Global resources.
+# A bare path/glob is flattened into the install root, which is where the GTK
+# DLLs belong (beside tunnel.exe).  The { src, target } form instead preserves a
+# relative path under the install root, which GTK/GLib require:
+#   - gschemas.compiled: GLib derives <prefix>/share/glib-2.0/schemas from the
+#     loaded DLL's location.  Without it, g_settings_schema_source_lookup fails.
+#   - gdk-pixbuf loaders: loaders.cache names the loader by the relative path
+#     below, so that layout must be reproduced exactly or SVG icons cannot be
+#     decoded -- shipping rsvg-2-2.dll alone is not sufficient.
 resources = [
-  "C:/gtk-build/gtk/x64/release/bin/*.dll"
+  "C:/gtk-build/gtk/x64/release/bin/*.dll",
+  { src = "C:/gtk-build/gtk/x64/release/share/glib-2.0/schemas/gschemas.compiled", target = "share/glib-2.0/schemas/gschemas.compiled" },
+  { src = "C:/gtk-build/gtk/x64/release/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache", target = "lib/gdk-pixbuf-2.0/2.10.0/loaders.cache" },
+  { src = "C:/gtk-build/gtk/x64/release/lib/gdk-pixbuf-2.0/2.10.0/loaders/pixbufloader_svg.dll", target = "lib/gdk-pixbuf-2.0/2.10.0/loaders/pixbufloader_svg.dll" },
 ]
 
 [[package.metadata.packager.binaries]]
