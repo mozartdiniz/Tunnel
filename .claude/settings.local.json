@@ -40,7 +40,15 @@
       "Bash(grep -r \"icon\" /Users/mozart/Dev/Tunnel/linux/build-windows.*)",
       "Bash(identify /Users/mozart/Dev/Tunnel/icon/app_icon.png)",
       "Bash(ls /Users/mozart/Dev/Tunnel/LICENSE*)",
-      "Bash(cargo metadata *)"
+      "Bash(cargo metadata *)",
+      "Bash(rustc --version)",
+      "Bash(cargo --version)",
+      "Bash(rustup target *)",
+      "Bash(where cargo-packager *)",
+      "Read(//c/gtk-build/gtk/x64/release/**)",
+      "Bash(where pkg-config *)",
+      "Read(//c/Program Files/Microsoft Visual Studio/**)",
+      "Read(//c/Program Files \\\\\\(x86\\\\\\)/Microsoft Visual Studio/**)"
     ]
   }
 }

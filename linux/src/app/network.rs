@@ -155,11 +155,21 @@ pub async fn run_network(
     }
     discovery.advertise(&config.device_name, LOCALSEND_PORT).await?;
 
-    let browse_rx = discovery
+    // A failed multicast listener (e.g. the OS has reserved the LocalSend UDP
+    // port) must not bring down the whole network layer: the HTTPS receive
+    // server and the subnet scan still function without it.
+    let mut browse_abort = match discovery
         .browse(config.device_name.clone(), LOCALSEND_PORT)
-        .await?;
-
-    let mut browse_abort = spawn_browse_loop(browse_rx, event_tx.clone(), sync_peers.clone());
+        .await
+    {
+        Ok(rx) => Some(spawn_browse_loop(rx, event_tx.clone(), sync_peers.clone())),
+        Err(e) => {
+            tracing::warn!(
+                "Peer discovery unavailable: {e:#}. Receiving and subnet scan remain active."
+            );
+            None
+        }
+    };
 
     // ── Startup subnet scan ──────────────────────────────────────────────────
     {
@@ -266,7 +276,9 @@ pub async fn run_network(
                     }
 
                     AppCommand::RefreshPeers => {
-                        browse_abort.abort();
+                        if let Some(handle) = &browse_abort {
+                            handle.abort();
+                        }
                         sync_peers.write().await.clear();
                         let name = device_name.read().await.clone();
                         if let Err(e) = discovery.advertise(&name, LOCALSEND_PORT).await {
@@ -274,7 +286,8 @@ pub async fn run_network(
                         }
                         match discovery.browse(name, LOCALSEND_PORT).await {
                             Ok(rx) => {
-                                browse_abort = spawn_browse_loop(rx, event_tx.clone(), sync_peers.clone());
+                                browse_abort =
+                                    Some(spawn_browse_loop(rx, event_tx.clone(), sync_peers.clone()));
                                 tracing::info!("Peer discovery restarted");
                             }
                             Err(e) => tracing::error!("Failed to restart browse: {e}"),
