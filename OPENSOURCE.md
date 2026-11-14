@@ -44,11 +44,8 @@ Reviewed 2026-03-19. Overall: ~75% ready.
 
 ## Medium Priority (housekeeping)
 
-- [ ] Move or remove files that shouldn't be at the repo root:
-  - `audit.py` — security testing script
-  - `spoof_attack.py` — attack simulation script
-  - `traversal_test.log`, `tunnel_test.log`, `tunnel.log` — test logs
-  - Consider moving to a `scripts/` or `tests/` directory, or `.gitignore` them
+- [x] Move or remove files that shouldn't be at the repo root: `audit.py` and `security_test.py`
+  moved to `scripts/security/`; `spoof_attack.py` and the test logs removed, and `*.log` ignored
 
 ---
 

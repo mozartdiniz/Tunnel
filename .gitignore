@@ -3,3 +3,7 @@ target/
 .build/
 
 build-windows/
+__pycache__/
+*.pyc
+*.log
+.claude/settings.local.json
